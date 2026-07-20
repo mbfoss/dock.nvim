@@ -1,0 +1,13 @@
+# Compiled Lua sources
+luac.out
+
+# luarocks build files
+*.src.rock
+*.zip
+*.tar.gz
+
+.DS_Store
+/.vscode
+/.loop
+/.claude
+dock.nvim.code-workspace
