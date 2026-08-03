@@ -1,8 +1,3 @@
----@class dock.Badge
----@field icon  string    single-cell glyph shown before the tab label
----@field hl    string    highlight group for the glyph
----@field busy? boolean   the group is still working; busy groups are never auto-disposed
-
 ---@class dock.Config
 ---@field command     string                          user command name; false-y disables it
 ---@field position    "bottom"|"top"|"left"|"right"   where the panel splits
@@ -10,7 +5,6 @@
 ---@field min_size    integer                         floor in lines/columns
 ---@field auto_open   boolean                         open the panel when a source adds a group
 ---@field empty_text  string                          shown when the panel holds no groups
----@field badges      table<string, dock.Badge>   status name → badge
 ---@field winbar      dock.Config.Winbar
 ---@field shell       dock.Config.Shell
 
@@ -31,15 +25,6 @@ local M = {
     min_size   = 6,
     auto_open  = true,
     empty_text = "No panels",
-
-    badges     = {
-        running = { icon = "▶", hl = "DockBadgeOk", busy = true },
-        waiting = { icon = "⧗", hl = "DockBadgeWarn", busy = true },
-        ok      = { icon = "✓", hl = "DockBadgeOk" },
-        failed  = { icon = "✗", hl = "DockBadgeErr" },
-        stopped = { icon = "✗", hl = "DockBadgeHint" },
-        idle    = { icon = "●", hl = "DockBadgeMuted" },
-    },
 
     winbar     = {
         separator = "│",

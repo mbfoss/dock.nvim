@@ -49,6 +49,14 @@ describe("winbar.build", function()
         assert.is_truthy(out:find("2:test", 1, true))
     end)
 
+    it("draws no glyph for a tab without a badge", function()
+        local bare = tab({})
+        bare.icon, bare.icon_hl = nil, nil
+        local out = winbar.build({ bare }, 80, OPTS)
+        assert.is_nil(out:find("▶", 1, true))
+        assert.is_truthy(out:find("1:build", 1, true))
+    end)
+
     it("omits numbers when disabled", function()
         local opts = vim.tbl_extend("force", OPTS, { numbers = false })
         local out  = winbar.build({ tab({ label = "build" }) }, 80, opts)

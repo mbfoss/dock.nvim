@@ -65,7 +65,7 @@ _actions.dispose = function(_, bang)
     vim.ui.select(groups, {
         prompt = "Close tab:",
         format_item = function(group)
-            return string.format("%s  [%s]", group.label, group.status)
+            return group.label
         end,
     }, function(choice)
         if choice then choice:dispose() end

@@ -477,7 +477,7 @@ function Panel:_build_tabs()
     local tabs, targets = {}, {}
 
     for _, group in ipairs(self._groups) do
-        local badge      = group:badge_spec()
+        local badge      = group.badge
         local tab_num    = #targets + 1
         targets[tab_num] = { group = group, page = 0 }
 
@@ -490,8 +490,8 @@ function Panel:_build_tabs()
         local tab = {
             num     = tab_num,
             label   = group.label,
-            icon    = badge.icon,
-            icon_hl = badge.hl,
+            icon    = badge and badge.icon,
+            icon_hl = badge and badge.hl,
             active  = group == self._active,
             unread  = unread,
             pages   = {},

@@ -23,8 +23,8 @@ local _MIN_LABEL = 2
 ---@class dock.winbar.Tab
 ---@field num     integer  global jump number for the group's own tab
 ---@field label   string
----@field icon    string
----@field icon_hl string
+---@field icon    string?  glyph before the label; the tab draws none when nil
+---@field icon_hl string?  highlight for `icon`
 ---@field active  boolean  this group owns the displayed buffer
 ---@field unread  boolean  unseen output somewhere in the group; only set when it draws no page tabs
 ---@field pages   dock.winbar.Page[]  page tabs; empty when the group has a single page
@@ -116,8 +116,10 @@ function M.build(tabs, width, opts)
         push(_FIXED, " ")
 
         open_click(tab.num)
-        push(_ZERO, "%#" .. tab.icon_hl .. "#")
-        push(_FIXED, tab.icon .. " ")
+        if tab.icon then
+            push(_ZERO, "%#" .. (tab.icon_hl or "WinBar") .. "#")
+            push(_FIXED, tab.icon .. " ")
+        end
         push(_ZERO, tab_hl)
         push(_FIXED, prefix(tab.num))
         push(_CROP, tab.label)

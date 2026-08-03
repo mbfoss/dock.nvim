@@ -5,25 +5,18 @@ local Group = require("dock.Group")
 --- them without any plugin reaching into another's tabs.
 ---@class dock.Source
 ---@field name    string
----@field badges  table<string, dock.Badge>  status names private to this source
 ---@field _panel  dock.Panel
 ---@field _groups table<string, dock.Group>
 ---@field _seq    integer
 local Source = {}
 Source.__index = Source
 
----@class dock.SourceSpec
----@field badges? table<string, dock.Badge>  extra statuses, merged over the global table for this source only
-
 ---@param panel dock.Panel
 ---@param name  string
----@param spec? dock.SourceSpec
 ---@return dock.Source
-function Source.new(panel, name, spec)
-    spec = spec or {}
+function Source.new(panel, name)
     return setmetatable({
         name    = name,
-        badges  = spec.badges or {},
         _panel  = panel,
         _groups = {},
         _seq    = 0,

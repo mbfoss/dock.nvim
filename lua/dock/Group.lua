@@ -1,18 +1,20 @@
-local config = require("dock.config")
+---@class dock.Badge
+---@field icon  string    single-cell glyph shown before the tab label
+---@field hl    string    highlight group for the glyph
+---@field busy? boolean   the group is still working; busy groups are never auto-disposed
 
---- A group is one tab in the panel: a label, a status badge, and an ordered list
---- of pages (buffers). The owning source mutates it through these methods; every
---- mutator notifies the panel so the winbar and the displayed buffer stay in
---- sync. A group outlives the panel window — closing the panel does not discard
---- it, and re-opening restores every tab.
+--- A group is one tab in the panel: a label, an optional badge, and an ordered
+--- list of pages (buffers). The owning source mutates it through these methods;
+--- every mutator notifies the panel so the winbar and the displayed buffer stay
+--- in sync. A group outlives the panel window — closing the panel does not
+--- discard it, and re-opening restores every tab.
 ---@class dock.Group
 ---@field id                string
 ---@field label             string
----@field status            string
 ---@field pages             dock.Page[]
 ---@field data              table                 free-form, owned by the source
 ---@field focus             "auto"|"never"|"always"
----@field badge             dock.Badge?       explicit badge; overrides the status lookup
+---@field badge             dock.Badge?           glyph drawn before the tab label; none when nil
 ---@field remove_when_empty boolean               drop the tab once its last page goes away
 ---@field on_dispose        fun(group: dock.Group)?   called by :dispose() so the source can free buffers
 ---@field on_activate       fun(group: dock.Group, page: dock.Page?)?
@@ -30,8 +32,7 @@ Group.__index = Group
 ---@class dock.GroupSpec
 ---@field id?                string                  stable id for source:get(); defaults to a generated one
 ---@field label?             string                  tab text; defaults to the id
----@field status?            string                  key into the badge table; default "idle"
----@field badge?             dock.Badge          explicit badge, bypassing the status lookup
+---@field badge?             dock.Badge              glyph drawn before the tab label
 ---@field focus?             "auto"|"never"|"always" how eagerly the tab takes over the panel; default "auto"
 ---@field data?              table
 ---@field remove_when_empty? boolean
@@ -47,7 +48,6 @@ function Group.new(source, panel, spec)
     return setmetatable({
         id                = spec.id,
         label             = spec.label or spec.id,
-        status            = spec.status or "idle",
         badge             = spec.badge,
         focus             = spec.focus or "auto",
         pages             = {},
@@ -61,21 +61,11 @@ function Group.new(source, panel, spec)
     }, Group)
 end
 
---- Resolve the badge to draw: an explicit `badge` wins, then the source's own
---- status table, then the global one, then the `idle` fallback.
----@return dock.Badge
-function Group:badge_spec()
-    if self.badge then return self.badge end
-    return self._source.badges[self.status]
-        or config.badges[self.status]
-        or config.badges.idle
-end
-
 --- True while the group is still working. Busy groups are excluded from
 --- `dock.disposable()` so an in-flight job is never swept up by a bulk close.
 ---@return boolean
 function Group:is_busy()
-    return self:badge_spec().busy == true
+    return self.badge ~= nil and self.badge.busy == true
 end
 
 ---@return boolean
@@ -135,16 +125,6 @@ function Group:remove_page(page)
     return false
 end
 
----@param status string
----@return dock.Group self
-function Group:set_status(status)
-    if self.status ~= status then
-        self.status = status
-        self._panel:_group_changed(self)
-    end
-    return self
-end
-
 ---@param label string
 ---@return dock.Group self
 function Group:set_label(label)
@@ -155,11 +135,13 @@ function Group:set_label(label)
     return self
 end
 
----@param badge dock.Badge?  nil restores the status-driven badge
+---@param badge dock.Badge?  nil draws the tab without a glyph
 ---@return dock.Group self
 function Group:set_badge(badge)
-    self.badge = badge
-    self._panel:_group_changed(self)
+    if self.badge ~= badge then
+        self.badge = badge
+        self._panel:_group_changed(self)
+    end
     return self
 end
 

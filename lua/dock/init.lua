@@ -11,9 +11,9 @@ local config = require("dock.config")
 --- think about window layout.
 ---
 ---     local src   = require("dock").source("myplugin")
----     local group = src:group({ label = "build", status = "running" })
+---     local group = src:group({ label = "build", badge = RUNNING })
 ---     group:page({ buf = out_buf, label = "out" })
----     group:set_status("ok")
+---     group:set_badge(DONE)
 ---
 ---@class dock
 local M      = {}
@@ -30,13 +30,12 @@ end
 
 --- Claim a namespace in the panel. Call once per plugin and keep the handle;
 --- repeated calls with the same name return the same source.
----@param name  string
----@param spec? dock.SourceSpec
+---@param name string
 ---@return dock.Source
-function M.source(name, spec)
+function M.source(name)
     assert(type(name) == "string" and name ~= "", "dock: source needs a name")
     if not _sources[name] then
-        _sources[name] = Source.new(Panel.get(), name, spec)
+        _sources[name] = Source.new(Panel.get(), name)
     end
     return _sources[name]
 end

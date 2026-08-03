@@ -43,7 +43,7 @@ Three nouns, and only the first is yours to manage:
 | | |
 |---|---|
 | **source** | one plugin's namespace. Claim it once, keep the handle. |
-| **group**  | one tab. Has a label, a status badge, and pages. |
+| **group**  | one tab. Has a label, an optional badge, and pages. |
 | **page**   | one buffer inside a group. |
 
 A group with a single page renders as one tab. A group with several renders as a
@@ -61,12 +61,15 @@ local dock = require("dock")
 local src   = dock.source("myplugin")
 
 -- per unit of work
-local group = src:group({ label = "build", status = "running" })
+local group = src:group({
+  label = "build",
+  badge = { icon = "▶", hl = "DockBadgeOk", busy = true },
+})
 group:page({ buf = stdout_buf, label = "out" })
 
 -- later
 group:page({ buf = diag_buf, label = "diag", priority = 5 })
-group:set_status("ok")
+group:set_badge({ icon = "✓", hl = "DockBadgeOk" })
 ```
 
 That is the whole integration. No window handling, no layout code.
@@ -105,34 +108,31 @@ page only when it **outranks** what is already on screen, so a low-priority log
 buffer appearing mid-run never pulls the user off the output they are watching.
 Pass `activate = true` on a page, or call `group:activate()`, to insist.
 
-### Statuses and badges
+### Badges
 
-A status is a name that maps to a badge. The built-in set:
-
-| status | badge | busy |
-|---|---|---|
-| `running` | `▶` | yes |
-| `waiting` | `⧗` | yes |
-| `ok` | `✓` | |
-| `failed` | `✗` | |
-| `stopped` | `✗` | |
-| `idle` | `●` | |
-
-`busy` means the group is still working. Busy groups are excluded from
-`dock.disposable()`, so a bulk close can never yank a buffer out from under a
-running job.
-
-Add your own, scoped to your source:
+A badge is the glyph drawn before a tab's label. dock has no status vocabulary
+of its own — you supply the badge, and the meaning is whatever your plugin says
+it is:
 
 ```lua
-local src = dock.source("myplugin", {
-  badges = { deploying = { icon = "⇪", hl = "DockBadgeWarn", busy = true } },
+local group = src:group({
+  label = "deploy",
+  badge = { icon = "⇪", hl = "DockBadgeWarn", busy = true },
 })
-src:group({ label = "deploy", status = "deploying" })
+group:set_badge({ icon = "✓", hl = "DockBadgeOk" })  -- nil drops the glyph
 ```
 
-Or bypass statuses entirely with an explicit `badge = { icon = …, hl = … }` on
-the group.
+| field | |
+|---|---|
+| `icon` | single-cell glyph |
+| `hl` | highlight group for the glyph |
+| `busy` | the group is still working |
+
+`busy` groups are excluded from `dock.disposable()`, so a bulk close can never
+yank a buffer out from under a running job. A group with no badge is never busy.
+
+The `DockBadge*` highlight groups below are there to hint from, but any
+highlight group works.
 
 ### Unread output
 
@@ -180,8 +180,6 @@ require("dock").setup({
   auto_open  = true,        -- open the panel when a source adds a group
   empty_text = "No panels",
 
-  badges     = { … },       -- merged over the built-in table
-
   winbar = {
     separator = "│",
     unread    = "•",
@@ -218,7 +216,7 @@ All defined with `default = true`, so a colourscheme always wins.
 | | |
 |---|---|
 | `setup(opts?)` | configure; optional |
-| `source(name, spec?)` | claim a namespace → `Source` |
+| `source(name)` | claim a namespace → `Source` |
 | `panel()` | the shared `Panel` |
 | `open(opts?)` / `close()` / `toggle(opts?)` | `opts.enter` focuses the window |
 | `jump(n, opts?)` | select tab `n`; returns `false` if out of range |
@@ -239,12 +237,12 @@ All defined with `default = true`, so a colourscheme always wins.
 |---|---|
 | `page(spec)` | add a buffer → `Page` |
 | `remove_page(page\|buf)` | |
-| `set_status(s)` / `set_label(s)` / `set_badge(b?)` | chainable |
+| `set_label(s)` / `set_badge(b?)` | chainable |
 | `activate(opts?)` | show it; `{ page = …, buf = …, enter = … }` |
 | `remove()` / `dispose()` | detach / detach and run `on_dispose` |
-| `is_busy()` / `is_removed()` / `badge_spec()` | |
+| `is_busy()` / `is_removed()` | |
 
-`GroupSpec`: `id`, `label`, `status`, `badge`, `focus`, `data`,
+`GroupSpec`: `id`, `label`, `badge`, `focus`, `data`,
 `remove_when_empty`, `auto_open`, `on_dispose`, `on_activate`.
 
 `PageSpec`: `buf`, `label`, `priority`, `activate`.

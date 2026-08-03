@@ -313,30 +313,27 @@ describe("dock", function()
         end)
     end)
 
-    describe("status and disposal", function()
-        it("treats configured busy statuses as busy", function()
-            local group = src:group({ label = "build", status = "running" })
+    describe("badges and disposal", function()
+        it("takes busy from the caller's badge", function()
+            local group = src:group({
+                label = "build",
+                badge = { icon = "▶", hl = "DockBadgeOk", busy = true },
+            })
             assert.is_true(group:is_busy())
-            group:set_status("ok")
+            group:set_badge({ icon = "✓", hl = "DockBadgeOk" })
             assert.is_false(group:is_busy())
         end)
 
+        it("treats a group without a badge as idle", function()
+            assert.is_false(src:group({ label = "plain" }):is_busy())
+        end)
+
         it("excludes busy groups from disposable()", function()
-            src:group({ label = "running", status = "running" })
-            local done = src:group({ label = "done", status = "ok" })
+            src:group({ label = "running", badge = { icon = "▶", hl = "DockBadgeOk", busy = true } })
+            local done = src:group({ label = "done", badge = { icon = "✓", hl = "DockBadgeOk" } })
             local list = dock.disposable()
             assert.are.equal(1, #list)
             assert.are.equal(done, list[1])
-        end)
-
-        it("uses a source badge over the global table", function()
-            local other = dock.source("badged", {
-                badges = { deploying = { icon = "⇪", hl = "DockBadgeWarn", busy = true } },
-            })
-            local group = other:group({ label = "deploy", status = "deploying" })
-            assert.are.equal("⇪", group:badge_spec().icon)
-            assert.is_true(group:is_busy())
-            other:clear({ busy = true })
         end)
 
         it("calls on_dispose so the source can free buffers", function()
