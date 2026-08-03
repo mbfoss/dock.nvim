@@ -10,6 +10,10 @@ local config = require("dock.config")
 --- numbering, and the focus rules; the plugin owns its buffers and never has to
 --- think about window layout.
 ---
+--- The panel is editor-wide: every Neovim tabpage shows the same groups, the
+--- same tab bar and the same page. Only the window is per-tabpage, so each tab
+--- opens and closes its own view of it.
+---
 ---     local src   = require("dock").source("myplugin")
 ---     local group = src:group({ label = "build", badge = RUNNING })
 ---     group:page({ buf = out_buf, label = "out" })
@@ -46,13 +50,17 @@ function M.panel()
     return Panel.get()
 end
 
+--- Show the dock in the current tabpage.
 ---@param opts? { enter?: boolean }
 function M.open(opts)
     Panel.get():open(opts)
 end
 
-function M.close()
-    Panel.get():close()
+--- Hide the dock in the current tabpage; `{ all = true }` hides it in every one.
+--- The groups are kept either way.
+---@param opts? { all?: boolean }
+function M.close(opts)
+    Panel.get():close(opts)
 end
 
 ---@param opts? { enter?: boolean }

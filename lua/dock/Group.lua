@@ -7,7 +7,8 @@
 --- list of pages (buffers). The owning source mutates it through these methods;
 --- every mutator notifies the panel so the winbar and the displayed buffer stay
 --- in sync. A group outlives the panel window — closing the panel does not
---- discard it, and re-opening restores every tab.
+--- discard it, and re-opening restores every tab, in whichever tabpage the dock
+--- is opened next.
 ---@class dock.Group
 ---@field id                string
 ---@field label             string
@@ -165,7 +166,7 @@ end
 function Group:remove()
     if self._removed then return end
     self._removed = true
-    self._source._groups[self.id] = nil
+    self._source:_forget(self)
     self._panel:_group_removed(self)
 end
 

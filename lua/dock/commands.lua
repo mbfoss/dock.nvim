@@ -12,8 +12,10 @@ _actions.open = function()
     require("dock").open({ enter = true })
 end
 
-_actions.close = function()
-    require("dock").close()
+--- `:Dock close` hides the dock in this tabpage; `:Dock! close` hides it in all
+--- of them. Neither touches the tabs themselves.
+_actions.close = function(_, bang)
+    require("dock").close({ all = bang })
 end
 
 _actions.toggle = function()

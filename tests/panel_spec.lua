@@ -19,12 +19,11 @@ local function panel()
     return dock.panel()
 end
 
---- Buffer currently displayed in the panel window.
+--- Buffer currently displayed in this tabpage's dock window.
 ---@return integer?
 local function shown()
-    local p = panel()
-    if not p:is_open() then return nil end
-    return vim.api.nvim_win_get_buf(p._win)
+    local win = panel():win()
+    return win and vim.api.nvim_win_get_buf(win) or nil
 end
 
 describe("dock", function()
@@ -238,7 +237,7 @@ describe("dock", function()
             first:page({ buf = a })
 
             local prev  = vim.api.nvim_get_current_win()
-            vim.api.nvim_set_current_win(panel()._win)
+            vim.api.nvim_set_current_win(panel():win())
 
             local second = src:group({ label = "second" })
             second:page({ buf = scratch() })
@@ -252,7 +251,7 @@ describe("dock", function()
             first:page({ buf = scratch() })
 
             local prev = vim.api.nvim_get_current_win()
-            vim.api.nvim_set_current_win(panel()._win)
+            vim.api.nvim_set_current_win(panel():win())
 
             local restarted = src:group({ label = "restarted", focus = "always" })
             local b         = scratch()

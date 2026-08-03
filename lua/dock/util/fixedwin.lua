@@ -122,8 +122,22 @@ function M.create_fixed_win(axis, ratio, on_delete, opts)
     ---@return boolean
     local function pinnable()
         if not win or not vim.api.nvim_win_is_valid(win) then return false end
-        local frame = _parent_frame(vim.fn.winlayout(), win)
+        -- Explicitly the window's own tabpage: winlayout() defaults to the
+        -- current one, which is a different layout entirely once the user is in
+        -- another tab.
+        local tabnr = vim.api.nvim_tabpage_get_number(vim.api.nvim_win_get_tabpage(win))
+        local frame = _parent_frame(vim.fn.winlayout(tabnr), win)
         return frame ~= nil and frame[1] == spec.frame and #frame[2] > 1
+    end
+
+    -- Layout events fire for every tabpage; only our own tab's changes can move
+    -- this window.
+    ---@param other integer  window id
+    ---@return boolean
+    local function same_tab(other)
+        if not win or not vim.api.nvim_win_is_valid(win) then return false end
+        if not vim.api.nvim_win_is_valid(other) then return false end
+        return vim.api.nvim_win_get_tabpage(other) == vim.api.nvim_win_get_tabpage(win)
     end
 
     -- Re-pin to the tracked ratio, but only when a neighbour can absorb the
@@ -151,7 +165,7 @@ function M.create_fixed_win(axis, ratio, on_delete, opts)
         callback = function()
             -- the just-created window is transiently current during WinNew
             local new = vim.api.nvim_get_current_win()
-            if vim.api.nvim_win_get_config(new).relative == "" then
+            if vim.api.nvim_win_get_config(new).relative == "" and same_tab(new) then
                 absorb_layout_change()
             end
         end,
@@ -186,10 +200,8 @@ function M.create_fixed_win(axis, ratio, on_delete, opts)
                 win = nil
                 vim.api.nvim_del_augroup_by_id(group)
                 if on_delete then on_delete(state.ratio) end
-            else
-                if vim.api.nvim_win_get_config(closed).relative == "" then
-                    absorb_layout_change()
-                end
+            elseif same_tab(closed) and vim.api.nvim_win_get_config(closed).relative == "" then
+                absorb_layout_change()
             end
         end,
     })

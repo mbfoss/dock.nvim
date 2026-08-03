@@ -9,14 +9,21 @@ local winbar    = require("dock.winbar")
 --- registered group's tabs. Groups belong to the panel *instance*, not to its
 --- window — closing the panel only tears down the window, so re-opening restores
 --- every tab exactly as it was.
+---
+--- There is one panel for the whole editor, shared by every Neovim tabpage: the
+--- same groups, the same tab bar, the same page on screen. A window is what is
+--- per-tabpage — each tab can show or hide the dock on its own, and every open
+--- one is a view of the same panel.
 ---@class dock.Panel
----@field _win         integer?
----@field _augroup     integer?
+---@field _wins        table<integer, dock.Panel.Win>  tabpage handle → that tab's dock window
+---@field _pending     table<integer, true>       tabpages to (re)open in when the user next enters them
+---@field _augroup     integer?                   panel-wide autocmds, created with the instance
 ---@field _groups      dock.Group[]
 ---@field _active      dock.Group?
 ---@field _active_page integer                    index into _active.pages; 0 when the group has none
----@field _shown_buf   integer?                   buffer currently in the window
----@field _closing_buf integer?                   buffer on screen when the window last closed, for one tick
+---@field _shown_buf   integer?                   buffer currently in the dock windows
+---@field _closing_buf integer?                   buffer on screen when a window last closed, for one tick
+---@field _closing_tabs table<integer, true>?     tabpages whose window closed in that same tick
 ---@field _ratio       number?                    last-known size ratio, persisted across open/close
 ---@field _targets     dock.Panel.Target[]    jump number → what it selects; rebuilt on every render
 ---@field _follow      dock.Group?            group allowed to take over even while the panel is focused
@@ -27,6 +34,10 @@ local winbar    = require("dock.winbar")
 local Panel     = {}
 Panel.__index   = Panel
 
+---@class dock.Panel.Win
+---@field win     integer
+---@field augroup integer
+
 ---@class dock.Panel.Target
 ---@field group dock.Group
 ---@field page  integer  1-based page index, or 0 meaning "the group's best page"
@@ -36,6 +47,8 @@ local _instance = nil ---@type dock.Panel?
 ---@return dock.Panel
 function Panel.new()
     local self = setmetatable({
+        _wins        = {},
+        _pending     = {},
         _groups      = {},
         _active_page = 0,
         _targets     = {},
@@ -45,10 +58,11 @@ function Panel.new()
     self._throttled_winbar = throttle.throttle_wrap(100, function()
         vim.schedule(function() self:_refresh_winbar() end)
     end)
+    self:_setup_autocmds()
     return self
 end
 
---- The shared panel every source draws into.
+--- The shared panel every source draws into, and every tabpage shows.
 ---@return dock.Panel
 function Panel.get()
     if not _instance then _instance = Panel.new() end
@@ -57,43 +71,145 @@ end
 
 -- Window lifecycle
 
----@return boolean
-function Panel:is_open()
-    return self._win ~= nil and vim.api.nvim_win_is_valid(self._win)
+-- Undo every option `open()` sets, handing a window back as an ordinary one.
+local _RESET_OPTS = "setlocal winbar< winfixheight< winfixwidth< winfixbuf< "
+    .. "number< relativenumber< signcolumn< spell< wrap<"
+
+--- Every live dock window, keyed by tabpage. Stale entries (window closed with
+--- its tabpage, say) are dropped on the way past.
+---@return table<integer, integer>  tabpage handle → window id
+function Panel:wins()
+    local out = {}
+    for tab, entry in pairs(self._wins) do
+        if vim.api.nvim_tabpage_is_valid(tab) and vim.api.nvim_win_is_valid(entry.win) then
+            out[tab] = entry.win
+        else
+            self._wins[tab] = nil
+        end
+    end
+    return out
 end
 
---- True while the user has the panel window focused. Auto-takeover is suppressed
---- in that case, so background activity never yanks the view out from under
---- someone working inside the panel.
+--- The dock window of a tabpage — the current one unless `tab` says otherwise.
+---@param tab? integer  tabpage handle
+---@return integer?
+function Panel:win(tab)
+    tab = tab or vim.api.nvim_get_current_tabpage()
+    local entry = self._wins[tab]
+    if entry and vim.api.nvim_win_is_valid(entry.win) then return entry.win end
+    self._wins[tab] = nil
+    return nil
+end
+
+--- Whether this tabpage is showing the dock.
+---@param tab? integer
+---@return boolean
+function Panel:is_open(tab)
+    return self:win(tab) ~= nil
+end
+
+--- Whether any tabpage at all is showing the dock.
+---@return boolean
+function Panel:is_open_anywhere()
+    return next(self:wins()) ~= nil
+end
+
+---@param win integer
+---@return boolean
+function Panel:_owns_win(win)
+    for _, w in pairs(self:wins()) do
+        if w == win then return true end
+    end
+    return false
+end
+
+--- True while the user has a dock window focused. Auto-takeover is suppressed in
+--- that case, so background activity never yanks the view out from under someone
+--- working inside the panel.
 ---@return boolean
 function Panel:_is_focused()
-    return self:is_open() and vim.api.nvim_get_current_win() == self._win
+    return self:_owns_win(vim.api.nvim_get_current_win())
 end
 
+--- Panel-wide autocmds. These outlive any one window, so they are registered
+--- with the instance rather than per open().
+function Panel:_setup_autocmds()
+    local group = vim.api.nvim_create_augroup("DockPanel", { clear = true })
+    self._augroup = group
+
+    vim.api.nvim_create_autocmd({ "TabEnter", "TabNew" }, {
+        group    = group,
+        callback = function()
+            local tab = vim.api.nvim_get_current_tabpage()
+            if self._pending[tab] then
+                self._pending[tab] = nil
+                self:open()
+            end
+        end,
+    })
+
+    vim.api.nvim_create_autocmd("WinNew", {
+        group    = group,
+        callback = function()
+            -- Window options are copied onto a window made from another one, so
+            -- splitting a dock window — or carrying it off with `:wincmd T`,
+            -- which really means "new window over there, close this one" —
+            -- leaves a stray carrying our click regions that no render ever
+            -- updates. The click handler in 'winbar' is the giveaway; it is
+            -- there regardless of how the bar was cropped for its width.
+            local new_win = vim.api.nvim_get_current_win()
+            if not self:_owns_win(new_win)
+                and vim.wo[new_win].winbar:find("__dock_click", 1, true) then
+                vim.api.nvim_win_call(new_win, function() vim.cmd(_RESET_OPTS) end)
+            end
+        end,
+    })
+
+    vim.api.nvim_create_autocmd({ "WinResized", "ColorScheme" }, {
+        group    = group,
+        callback = function()
+            if self:is_open_anywhere() then
+                highlight.setup()
+                self:_refresh_winbar()
+            end
+        end,
+    })
+end
+
+--- Show the dock in the current tabpage. Other tabpages are left as they are —
+--- they are views of this same panel, each opened and closed on its own.
 ---@param opts? { enter?: boolean }
 function Panel:open(opts)
     opts = opts or {}
-    if self:is_open() then
-        if opts.enter then vim.api.nvim_set_current_win(self._win) end
+    local tab      = vim.api.nvim_get_current_tabpage()
+    local existing = self:win(tab)
+    if existing then
+        if opts.enter then vim.api.nvim_set_current_win(existing) end
         return
     end
+    self._pending[tab] = nil
 
     highlight.setup()
 
     local axis, pos = config.split_spec()
     -- fixedwin owns the split creation, the fixed-size pinning, layout-change
     -- recovery, and the close lifecycle; on_delete hands back the last-known
-    -- ratio (persisted for the next open) and runs our teardown.
-    local win, augroup = fixedwin.create_fixed_win(
+    -- ratio (shared by every tab's dock, so a drag in one sizes the next) and
+    -- runs our teardown.
+    -- `win` is an upvalue of on_delete so the teardown knows which window it is
+    -- reporting; it is assigned long before any close can fire.
+    local win ---@type integer?
+    local augroup ---@type integer?
+    win, augroup = fixedwin.create_fixed_win(
         axis,
         self._ratio or config.size,
         function(ratio)
             self._ratio = ratio
-            self:_on_win_closed()
+            if win then self:_on_win_closed(win) end
         end,
         { min = config.min_size, pos = pos, enter = opts.enter }
     )
-    self._win, self._augroup = win, augroup
+    self._wins[tab] = { win = win, augroup = augroup }
 
     ui.setlocal(win, "winfixbuf", true)
     ui.setlocal(win, "number", false)
@@ -114,43 +230,33 @@ function Panel:open(opts)
         self:_set_active(pick)
     end
 
-    self:_show_active()
+    -- A dock already open elsewhere is showing a page; join it rather than
+    -- re-deriving one, so every view stays on the same buffer.
+    if self._shown_buf and vim.api.nvim_buf_is_valid(self._shown_buf) then
+        self:_set_win_buf(self._shown_buf, win)
+    else
+        self:_show_active()
+    end
     self:_refresh_winbar()
-
-    vim.api.nvim_create_autocmd("WinNew", {
-        group    = augroup,
-        callback = function()
-            -- 'winbar' is copied onto a freshly split window, so splitting the
-            -- panel leaves a sibling carrying our click regions that no render
-            -- ever updates. Detect it and strip the panel-special options off.
-            local new_win = vim.api.nvim_get_current_win()
-            if self:is_open() and new_win ~= self._win
-                and vim.wo[new_win].winbar ~= ""
-                and vim.wo[new_win].winbar == vim.wo[self._win].winbar then
-                vim.api.nvim_win_call(new_win, function()
-                    vim.cmd("setlocal winbar< winfixheight< winfixwidth< winfixbuf< "
-                        .. "number< relativenumber< signcolumn< spell< wrap<")
-                end)
-            end
-        end,
-    })
-
-    vim.api.nvim_create_autocmd({ "WinResized", "ColorScheme" }, {
-        group    = augroup,
-        callback = function()
-            if self:is_open() then
-                highlight.setup()
-                self:_refresh_winbar()
-            end
-        end,
-    })
 end
 
-function Panel:close()
-    if self:is_open() then
+--- Hide the dock in the current tabpage; `{ all = true }` hides it everywhere.
+--- Groups are untouched either way — a closed dock still has all its tabs.
+---@param opts? { all?: boolean }
+function Panel:close(opts)
+    if opts and opts.all then
+        self._pending = {}
         -- fixedwin's on_delete saves the ratio and calls _on_win_closed.
-        pcall(vim.api.nvim_win_close, self._win, false)
+        for _, win in pairs(self:wins()) do
+            pcall(vim.api.nvim_win_close, win, false)
+        end
+        return
     end
+
+    local tab          = vim.api.nvim_get_current_tabpage()
+    self._pending[tab] = nil
+    local win          = self:win(tab)
+    if win then pcall(vim.api.nvim_win_close, win, false) end
 end
 
 ---@param opts? { enter?: boolean }
@@ -162,18 +268,33 @@ function Panel:toggle(opts)
     end
 end
 
-function Panel:_on_win_closed()
+---@param win integer  the window that closed
+function Panel:_on_win_closed(win)
+    local closed_tab
+    for tab, entry in pairs(self._wins) do
+        if entry.win == win then
+            closed_tab      = tab
+            self._wins[tab] = nil
+        end
+    end
+
     -- Deleting a buffer closes every window showing it, and Neovim emits
     -- WinClosed *before* any BufUnload/BufWipeout autocmd — there is no hook
     -- early enough to move the panel off the doomed buffer first. So record what
-    -- was on screen; if that exact buffer unloads in this same tick, the close
-    -- was collateral damage from the delete and _attach_buf reopens the panel.
-    self._closing_buf = self._shown_buf
-    vim.schedule(function() self._closing_buf = nil end)
+    -- was on screen and where; if that exact buffer unloads in this same tick,
+    -- the close was collateral damage from the delete and _attach_buf reopens
+    -- the dock in every tab that lost it.
+    self._closing_buf  = self._shown_buf
+    self._closing_tabs = self._closing_tabs or {}
+    if closed_tab then self._closing_tabs[closed_tab] = true end
+    vim.schedule(function()
+        self._closing_buf  = nil
+        self._closing_tabs = nil
+    end)
 
-    self._win         = nil
-    self._augroup     = nil
-    self._shown_buf   = nil
+    if not self:is_open_anywhere() then
+        self._shown_buf = nil
+    end
 end
 
 -- Buffer display
@@ -201,7 +322,7 @@ function Panel:_attach_buf(bufnr)
 
     vim.api.nvim_buf_attach(bufnr, false, {
         on_lines = function()
-            if self:is_open() and vim.api.nvim_win_get_buf(self._win) ~= bufnr then
+            if self:is_open_anywhere() and self._shown_buf ~= bufnr then
                 self._unread[bufnr] = true
                 self._throttled_winbar()
             end
@@ -219,43 +340,69 @@ function Panel:_attach_buf(bufnr)
         once     = true,
         callback = function()
             self._attached[bufnr] = nil
-            local took_panel_down = self._closing_buf == bufnr
+            local took_docs_down   = self._closing_buf == bufnr
+                and vim.tbl_keys(self._closing_tabs or {}) or {}
 
             for _, group in ipairs(vim.list_slice(self._groups)) do
                 group:remove_page(bufnr)
             end
 
-            -- Restore the panel Neovim closed out from under us (see
+            -- Restore the docks Neovim closed out from under us (see
             -- _on_win_closed), but only if there is still something to show —
             -- reopening an empty panel over a wiped last tab is just noise.
-            if took_panel_down and #self._groups > 0 then
-                vim.schedule(function()
-                    if not self:is_open() then self:open() end
-                end)
+            if #took_docs_down > 0 and #self._groups > 0 then
+                vim.schedule(function() self:_reopen_in(took_docs_down) end)
             end
         end,
     })
 end
 
----@param bufnr integer
-function Panel:_set_win_buf(bufnr)
-    if not self:is_open() then return end
-    if not vim.api.nvim_buf_is_valid(bufnr) then return end
-    ui.setlocal(self._win, "winfixbuf", false)
-    vim.api.nvim_win_set_buf(self._win, bufnr)
-    ui.setlocal(self._win, "winfixbuf", true)
-    self._unread[bufnr] = nil
-    self._shown_buf     = bufnr
-    if vim.bo[bufnr].buftype == "terminal" then
-        local last = vim.api.nvim_buf_line_count(bufnr)
-        pcall(vim.api.nvim_win_set_cursor, self._win, { last, 0 })
+--- Re-show the dock in each of `tabs`. Only the current tabpage can be split
+--- into directly; the rest wait for the user to enter them.
+---@param tabs integer[]
+function Panel:_reopen_in(tabs)
+    local cur = vim.api.nvim_get_current_tabpage()
+    for _, tab in ipairs(tabs) do
+        if vim.api.nvim_tabpage_is_valid(tab) and not self:is_open(tab) then
+            if tab == cur then
+                self:open()
+            else
+                self._pending[tab] = true
+            end
+        end
     end
 end
 
---- Put the active group's active page in the window, falling back to the
+--- Put a buffer in the dock windows — every one of them by default, since all
+--- tabs are views of the same panel.
+---@param bufnr integer
+---@param only? integer  restrict to this window
+function Panel:_set_win_buf(bufnr, only)
+    if not vim.api.nvim_buf_is_valid(bufnr) then return end
+
+    local shown = false
+    for _, win in pairs(self:wins()) do
+        if not only or win == only then
+            ui.setlocal(win, "winfixbuf", false)
+            vim.api.nvim_win_set_buf(win, bufnr)
+            ui.setlocal(win, "winfixbuf", true)
+            if vim.bo[bufnr].buftype == "terminal" then
+                local last = vim.api.nvim_buf_line_count(bufnr)
+                pcall(vim.api.nvim_win_set_cursor, win, { last, 0 })
+            end
+            shown = true
+        end
+    end
+    if not shown then return end
+
+    self._unread[bufnr] = nil
+    self._shown_buf     = bufnr
+end
+
+--- Put the active group's active page in the dock windows, falling back to the
 --- group's best page and then to the placeholder buffer.
 function Panel:_show_active()
-    if not self:is_open() then return end
+    if not self:is_open_anywhere() then return end
 
     local group = self._active
     local page  = group and group.pages[self._active_page] or nil
@@ -357,7 +504,7 @@ function Panel:_resolve_page(group, page, buf)
     return nil
 end
 
---- Show a group, opening the panel if it is closed.
+--- Show a group, opening the dock in this tabpage if it is closed.
 ---@param group dock.Group
 ---@param opts? dock.ActivateOpts
 function Panel:activate(group, opts)
@@ -366,9 +513,8 @@ function Panel:activate(group, opts)
     self:_set_active(group, self:_resolve_page(group, opts.page, opts.buf))
     self:_show_active()
     self:_refresh_winbar()
-    if opts.enter and self:is_open() then
-        vim.api.nvim_set_current_win(self._win)
-    end
+    local win = opts.enter and self:win() or nil
+    if win then vim.api.nvim_set_current_win(win) end
 end
 
 -- Group notifications (called from Group / Source)
@@ -427,7 +573,7 @@ function Panel:_group_removed(group)
         -- Prefer the tab that slid into this slot, the way closing a tab works
         -- everywhere else; fall back to the newest.
         self:_set_active(self._groups[idx] or self._groups[#self._groups])
-        -- Synchronous: the window must leave the buffer before a caller that is
+        -- Synchronous: the windows must leave the buffer before a caller that is
         -- disposing this group deletes it.
         self:_show_active()
     end
@@ -520,22 +666,28 @@ function Panel:_build_tabs()
 end
 
 function Panel:_refresh_winbar()
-    if not self:is_open() then return end
+    local wins = self:wins()
+    if next(wins) == nil then return end
+
     local tabs, targets = self:_build_tabs()
     self._targets       = targets
 
-    local text = winbar.build(tabs, vim.api.nvim_win_get_width(self._win), {
-        separator  = config.winbar.separator,
-        unread     = config.winbar.unread,
-        numbers    = config.winbar.numbers,
-        click      = "v:lua.__dock_click",
-        empty_text = config.empty_text,
-    })
+    -- One tab bar, rendered per window: the content is shared, but the width to
+    -- crop it to is whatever that tabpage's dock happens to be.
+    for _, win in pairs(wins) do
+        local text = winbar.build(tabs, vim.api.nvim_win_get_width(win), {
+            separator  = config.winbar.separator,
+            unread     = config.winbar.unread,
+            numbers    = config.winbar.numbers,
+            click      = "v:lua.__dock_click",
+            empty_text = config.empty_text,
+        })
 
-    -- 'winbar' is global-local: `vim.wo[win].winbar = …` would also write the
-    -- hidden global value, and every window without a local winbar would start
-    -- rendering the panel's. Keep it local.
-    ui.setlocal(self._win, "winbar", text)
+        -- 'winbar' is global-local: `vim.wo[win].winbar = …` would also write the
+        -- hidden global value, and every window without a local winbar would start
+        -- rendering the panel's. Keep it local.
+        ui.setlocal(win, "winbar", text)
+    end
 end
 
 -- Navigation
@@ -556,9 +708,8 @@ function Panel:jump(n, opts)
     self:_set_active(target.group, target.page ~= 0 and target.page or nil)
     self:_show_active()
     self:_refresh_winbar()
-    if opts and opts.enter and self:is_open() then
-        vim.api.nvim_set_current_win(self._win)
-    end
+    local win = opts and opts.enter and self:win() or nil
+    if win then vim.api.nvim_set_current_win(win) end
     return true
 end
 

@@ -1,6 +1,7 @@
 # dock.nvim
 
-One shared, docked window that any number of plugins can show their buffers in.
+One shared, docked window that any number of plugins can show their buffers in,
+in every tabpage.
 
 Plugins that produce output — task runners, test runners, linters, REPLs, build
 tools — each end up writing the same window-management code: where to split, how
@@ -53,6 +54,34 @@ the group's highest-`priority` page.
 
 Groups belong to the panel, not to its window: closing the panel tears down only
 the window, and reopening restores every tab exactly as it was.
+
+### One dock, every tabpage
+
+The panel is editor-wide, not per tabpage. Every Neovim tabpage shows the same
+groups, the same tab bar and the same page — a build you started in one tabpage
+is right there in the next, and jumping to a tab in one moves them all, because
+there is only one panel to move.
+
+What *is* per-tabpage is the window. Each tab shows or hides the dock on its own:
+
+| | |
+|---|---|
+| `dock.open()` / `:Dock open` | show the dock in this tabpage |
+| `dock.close()` / `:Dock close` | hide it here; the other tabpages keep theirs |
+| `dock.close({ all = true })` / `:Dock! close` | hide it everywhere |
+
+Hiding never touches the tabs themselves, so a dock closed in every tabpage
+still has every group waiting for the next `open`. Closing a tabpage is just
+that: its window goes, the panel and its groups do not.
+
+Two smaller consequences worth knowing:
+
+* Every open dock is a view of the same panel, so they all sit on the same page.
+  Only one of them can be the size you dragged it to, and that ratio is shared —
+  resize one and the next `open` uses it.
+* `:wincmd T` on the dock window is really "new window in a new tabpage, close
+  this one". The dock closes with it, and what lands in the new tabpage is a
+  plain window showing that buffer.
 
 ## Using it from a plugin
 
@@ -149,7 +178,8 @@ not visible. Nothing to wire up.
 |---|---|
 | `:Dock` | toggle the panel |
 | `:Dock 3` | jump to tab 3 (same as `:Dock jump 3`) |
-| `:Dock open` / `close` / `toggle` | |
+| `:Dock open` / `close` / `toggle` | in this tabpage |
+| `:Dock! close` | hide the dock in every tabpage |
 | `:Dock next` / `prev` | step through tabs, wrapping |
 | `:Dock shell` | open a shell in the Shell tab |
 | `:Dock shell echo 3` | run that command there instead |
@@ -226,7 +256,7 @@ All defined with `default = true`, so a colourscheme always wins.
 | `setup(opts?)` | configure; optional |
 | `source(name)` | claim a namespace → `Source` |
 | `panel()` | the shared `Panel` |
-| `open(opts?)` / `close()` / `toggle(opts?)` | `opts.enter` focuses the window |
+| `open(opts?)` / `close(opts?)` / `toggle(opts?)` | this tabpage's window; `opts.enter` focuses it, `close({ all = true })` hides every one |
 | `jump(n, opts?)` | select tab `n`; returns `false` if out of range |
 | `groups()` / `disposable()` | all groups / the non-busy ones |
 | `shell(opts?)` | run a shell/command as a page of the Shell tab |
