@@ -81,7 +81,8 @@ function M.disposable()
     return Panel.get():disposable()
 end
 
---- Open an interactive shell in its own panel tab (builtin source).
+--- Run a shell — or a command — as a page of the shared "Shell" tab (builtin
+--- source).
 ---@param opts? dock.ShellOpts
 ---@return dock.Group?
 function M.shell(opts)

@@ -1,18 +1,24 @@
 local config = require("dock.config")
-local term   = require("dock.tk.term")
-local ui     = require("dock.tk.ui")
+local term   = require("dock.util.term")
+local ui     = require("dock.util.ui")
 
---- The one source dock ships itself: an interactive shell in a panel tab.
+--- The one source dock ships itself: shells in a panel tab.
 --- It is written against the public source/group API and nothing else, so it
 --- doubles as the reference example for plugins embedding their own buffers.
+---
+--- Every shell lands in the same "Shell" group, one page per shell, labelled
+--- with the command it runs — so a handful of open shells cost one tab, not one
+--- tab each.
 ---@class dock.shell
 local M      = {}
 
--- A shell tab keeps the same neutral glyph whether the shell is running or has
--- exited — unlike a task, "finished" is not a result worth colouring. Only the
--- `busy` flag differs, which is what keeps a live shell out of bulk disposal.
+-- A shell tab keeps the same neutral glyph whether its shells are running or
+-- have exited — unlike a task, "finished" is not a result worth colouring. Only
+-- the `busy` flag differs, which is what keeps a live shell out of bulk disposal.
 local _BADGE_LIVE = { icon = "❯", hl = "DockBadgeMuted", busy = true }
 local _BADGE_DEAD = { icon = "❯", hl = "DockBadgeMuted" }
+
+local _GROUP_ID   = "shell"
 
 local _source     = nil ---@type dock.Source?
 
@@ -31,7 +37,7 @@ local function _default_cmd()
     if config.shell.cmd then return config.shell.cmd end
     -- The trailing `--` is a no-op argument that stops Neovim from tearing the
     -- terminal buffer down the moment the shell exits, so the scrollback stays
-    -- readable in the tab.
+    -- readable in the tab. It is not part of the label.
     return { vim.o.shell, "--" }
 end
 
@@ -42,36 +48,93 @@ local function _default_cwd()
     return cwd
 end
 
+--- Page label for a command: the program's basename plus its arguments, so
+--- `{ "git", "log" }` and `"echo 3"` read as `git log` and `echo 3`.
+---@param cmd string|string[]
+---@return string
+local function _label(cmd)
+    local words ---@type string[]
+    if type(cmd) == "table" then
+        words = cmd
+    else
+        words = vim.split(cmd, "%s+", { trimempty = true })
+    end
+    if #words == 0 then return "shell" end
+
+    local out = { vim.fn.fnamemodify(words[1], ":t") }
+    for i = 2, #words do out[#out + 1] = words[i] end
+    return table.concat(out, " ")
+end
+
+--- The shared shell group, created on first use. `remove_when_empty` drops it
+--- again once its last shell buffer goes, so the tab never lingers empty.
+---@return dock.Group
+local function _group()
+    local group = _get_source():group({
+        id                = _GROUP_ID,
+        label             = "Shell",
+        badge             = _BADGE_LIVE,
+        remove_when_empty = true,
+        data              = { shells = {} },
+        on_dispose        = function(g)
+            for _, page in ipairs(vim.list_slice(g.pages)) do
+                if vim.api.nvim_buf_is_valid(page.buf) then
+                    pcall(vim.api.nvim_buf_delete, page.buf, { force = true })
+                end
+            end
+        end,
+    })
+    -- Reusing a group whose shells had all exited: it is live again.
+    group:set_badge(_BADGE_LIVE)
+    return group
+end
+
+--- The tab stays busy while any of its shells is still running, so a single
+--- finished command never makes the whole tab look disposable.
+---@param group dock.Group
+local function _refresh_badge(group)
+    if group:is_removed() then return end
+    for buf, shell in pairs(group.data.shells) do
+        if not vim.api.nvim_buf_is_valid(buf) then
+            group.data.shells[buf] = nil
+        elseif not shell.exited then
+            return
+        end
+    end
+    group:set_badge(_BADGE_DEAD)
+end
+
 ---@class dock.ShellOpts
 ---@field cmd?   string|string[]  defaults to config.shell.cmd, else 'shell'
 ---@field cwd?   string           defaults to config.shell.cwd
----@field label? string           tab label; defaults to the command's basename
+---@field label? string           page label; defaults to the command
 ---@field env?   table<string,string>
 
---- Open an interactive shell in its own panel tab, focused and in insert mode.
+--- Run a shell — or any command — as a page of the shared "Shell" tab, focused
+--- and in insert mode.
 ---
---- The tab survives the shell exiting — it is only dropped when its terminal
---- buffer is deleted, either by the user or by disposing the tab.
+--- The page survives its command exiting, so the scrollback stays readable; it
+--- is dropped when the terminal buffer is deleted, either by the user or by
+--- disposing the tab.
 ---@param opts? dock.ShellOpts
 ---@return dock.Group?
 function M.open(opts)
     opts = opts or {}
 
     local cmd   = opts.cmd or _default_cmd()
-    local label = opts.label
-        or (type(cmd) == "table" and cmd[1] and vim.fn.fnamemodify(cmd[1], ":t"))
-        or (type(cmd) == "string" and vim.fn.fnamemodify(vim.split(cmd, " ")[1], ":t"))
-        or "shell"
+    -- Labelled off the requested command, not `cmd`: the default carries a `--`
+    -- that is plumbing, not something worth reading in the tab bar.
+    local label = opts.label or _label(opts.cmd or config.shell.cmd or vim.o.shell)
 
     local group ---@type dock.Group?  forward ref, captured by on_exit
+    local shell = { exited = false }
 
     local handle, err = term.spawn(cmd, {
         cwd     = opts.cwd ~= nil and opts.cwd or _default_cwd(),
         env     = opts.env,
         on_exit = function()
-            if group and not group:is_removed() then
-                group:set_badge(_BADGE_DEAD)
-            end
+            shell.exited = true
+            if group then _refresh_badge(group) end
         end,
     })
     if not handle then
@@ -79,22 +142,12 @@ function M.open(opts)
         return nil
     end
 
-    group = _get_source():group({
-        label             = label,
-        badge             = _BADGE_LIVE,
-        -- the tab lives exactly as long as its terminal buffer does
-        remove_when_empty = true,
-        data              = { handle = handle },
-        on_dispose        = function(g)
-            local buf = g.data.handle.bufnr
-            if vim.api.nvim_buf_is_valid(buf) then
-                pcall(vim.api.nvim_buf_delete, buf, { force = true })
-            end
-        end,
-    })
+    group                          = _group()
+    group.data.shells              = group.data.shells or {}
+    group.data.shells[handle.bufnr] = shell
 
     group:page({ buf = handle.bufnr, label = label })
-    group:activate({ enter = true })
+    group:activate({ buf = handle.bufnr, enter = true })
     vim.cmd("startinsert")
 
     return group

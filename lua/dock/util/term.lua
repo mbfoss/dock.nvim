@@ -1,20 +1,20 @@
-local ui = require("dock.tk.ui")
+local ui = require("dock.util.ui")
 
 local M = {}
 
----@class dock.tk.TermHandle
+---@class dock.util.TermHandle
 ---@field bufnr integer
 ---@field pid   integer
 ---@field stop  fun()  stop the spawned command
 
----@class dock.tk.SpawnOpts
+---@class dock.util.SpawnOpts
 ---@field bufname? string
 ---@field cwd?     string
 ---@field env?     table<string,string>
 ---@field on_exit? fun(code: integer)
 
 ---@param cmd  string|string[]
----@param opts dock.tk.SpawnOpts
+---@param opts dock.util.SpawnOpts
 ---@return integer? job_id, integer? pid, string? error
 local function _start_job(cmd, opts)
     local job_id
@@ -66,9 +66,9 @@ end
 --- Returns immediately with a handle, or nil plus an error message.
 --- The terminal handles all output rendering, including ANSI colours.
 ---@param cmd    string|string[]
----@param opts   dock.tk.SpawnOpts
+---@param opts   dock.util.SpawnOpts
 ---@param bufnr? integer  buffer to own the terminal (created automatically when nil)
----@return dock.tk.TermHandle?, string?
+---@return dock.util.TermHandle?, string?
 function M.spawn(cmd, opts, bufnr)
     -- A terminal buffer must be in a window for jobstart {term=true}, so borrow a
     -- hidden full-editor float for the duration of the call.
@@ -118,6 +118,16 @@ function M.spawn(cmd, opts, bufnr)
             for _, key in ipairs({ "i", "a", "o", "I", "A", "O", "c", "cc", "C", "s", "S", "R", "." }) do
                 vim.keymap.set("n", key, "<Nop>", { buffer = bufnr, nowait = true })
             end
+            -- A user sitting in terminal mode when the job dies stays there,
+            -- typing into nothing. Drop them into normal mode so the scrollback
+            -- is immediately navigable. Scheduled: the mode cannot be changed
+            -- from inside the TermClose callback itself.
+            vim.schedule(function()
+                if vim.api.nvim_get_current_buf() == bufnr
+                    and vim.api.nvim_get_mode().mode:sub(1, 1) == "t" then
+                    vim.cmd("stopinsert")
+                end
+            end)
         end,
     })
 
@@ -136,7 +146,7 @@ function M.spawn(cmd, opts, bufnr)
         end
     end
 
-    return { ---@type dock.tk.TermHandle
+    return { ---@type dock.util.TermHandle
         bufnr = bufnr,
         pid   = job_pid or 0,
         stop  = function() vim.fn.jobstop(job_id) end,

@@ -20,8 +20,12 @@ _actions.toggle = function()
     require("dock").toggle({ enter = true })
 end
 
-_actions.shell = function()
-    require("dock").shell()
+--- `:Dock shell` opens an interactive shell; `:Dock shell echo 3` runs that
+--- command instead. The arguments are rejoined into one string so the user's
+--- shell handles quoting, pipes and globs the way it does at a prompt.
+_actions.shell = function(args)
+    local cmd = #args > 0 and table.concat(args, " ") or nil
+    require("dock").shell({ cmd = cmd })
 end
 
 _actions.next = function()
@@ -33,7 +37,7 @@ _actions.prev = function()
 end
 
 _actions.jump = function(args)
-    local ui = require("dock.tk.ui")
+    local ui = require("dock.util.ui")
     local n  = tonumber(args[1])
     if not n then
         ui.notify_warning("jump needs a tab number")
@@ -49,7 +53,7 @@ end
 --- bulk close cannot pull the buffer out from under a running job.
 _actions.dispose = function(_, bang)
     local dock = require("dock")
-    local ui       = require("dock.tk.ui")
+    local ui       = require("dock.util.ui")
 
     local groups   = dock.disposable()
     if #groups == 0 then
@@ -101,7 +105,7 @@ function M.register()
 
         local action = _actions[sub]
         if not action then
-            require("dock.tk.ui").notify_warning("unknown subcommand: " .. sub)
+            require("dock.util.ui").notify_warning("unknown subcommand: " .. sub)
             return
         end
         action(vim.list_slice(args, 2), cmd.bang)

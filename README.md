@@ -12,7 +12,7 @@ the window, the tab bar, the numbering, and the focus rules.
 ┌────────────────────────────────────────────────────────┐
 │ editor                                                 │
 ├────────────────────────────────────────────────────────┤
-│ ✓ 1:build [2:out|3:diag•] │ ⇪ 4:deploy │ ❯ 5:zsh       │
+│ ✓ build [2:out|3:diag•] │ ⇪ 4:deploy │ ❯ 5:zsh         │
 │ ...buffer contents...                                  │
 └────────────────────────────────────────────────────────┘
 ```
@@ -47,7 +47,9 @@ Three nouns, and only the first is yours to manage:
 | **page**   | one buffer inside a group. |
 
 A group with a single page renders as one tab. A group with several renders as a
-tab plus a bracketed page list — so the common case stays visually quiet.
+tab plus a bracketed page list — so the common case stays visually quiet. The
+group tab has no buffer of its own: selecting it (by click or by number) shows
+the group's highest-`priority` page.
 
 Groups belong to the panel, not to its window: closing the panel tears down only
 the window, and reopening restores every tab exactly as it was.
@@ -149,7 +151,8 @@ not visible. Nothing to wire up.
 | `:Dock 3` | jump to tab 3 (same as `:Dock jump 3`) |
 | `:Dock open` / `close` / `toggle` | |
 | `:Dock next` / `prev` | step through tabs, wrapping |
-| `:Dock shell` | open a shell in a new tab |
+| `:Dock shell` | open a shell in the Shell tab |
+| `:Dock shell echo 3` | run that command there instead |
 | `:Dock dispose` | pick a finished tab to close |
 | `:Dock! dispose` | close every finished tab |
 
@@ -158,16 +161,21 @@ Rename it with `setup({ command = "Panel" })`, or disable it with
 
 ## Builtin: shell
 
-dock ships one source of its own — an interactive shell in a panel tab:
+dock ships one source of its own — shells in a panel tab:
 
 ```lua
 require("dock").shell({ cwd = vim.fn.getcwd() })
+require("dock").shell({ cmd = "echo 3" })
 ```
 
-The tab survives the shell exiting, so the scrollback stays readable; it is
-dropped when the terminal buffer is deleted. `lua/dock/shell.lua` is written
-against nothing but the public API, so it doubles as a worked example of
-embedding a plugin's buffers.
+Every shell joins the same **Shell** tab as one more page, labelled with the
+command it runs (`zsh`, `echo 3`), so ten open shells still cost one tab. The
+tab stays busy while any of its shells is running, and pages survive their
+command exiting so the scrollback stays readable; a page is dropped when its
+terminal buffer is deleted, and the tab goes with its last page.
+
+`lua/dock/shell.lua` is written against nothing but the public API, so it
+doubles as a worked example of embedding a plugin's buffers.
 
 ## Configuration
 
@@ -221,7 +229,7 @@ All defined with `default = true`, so a colourscheme always wins.
 | `open(opts?)` / `close()` / `toggle(opts?)` | `opts.enter` focuses the window |
 | `jump(n, opts?)` | select tab `n`; returns `false` if out of range |
 | `groups()` / `disposable()` | all groups / the non-busy ones |
-| `shell(opts?)` | open a shell tab |
+| `shell(opts?)` | run a shell/command as a page of the Shell tab |
 
 **`Source`**
 

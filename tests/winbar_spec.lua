@@ -79,6 +79,23 @@ describe("winbar.build", function()
         end
     end)
 
+    it("drops the group's number prefix once it draws page tabs", function()
+        local out = winbar.build({
+            tab({
+                num   = 1,
+                label = "build",
+                pages = {
+                    { num = 2, label = "out", current = true,  unread = false },
+                    { num = 3, label = "err", current = false, unread = false },
+                },
+            }),
+        }, 80, OPTS)
+        assert.is_nil(out:find("1:build", 1, true))
+        assert.is_truthy(out:find("build", 1, true))
+        assert.is_truthy(out:find("2:out", 1, true))
+        assert.is_truthy(out:find("3:err", 1, true))
+    end)
+
     it("marks unread pages", function()
         local out = winbar.build({
             tab({

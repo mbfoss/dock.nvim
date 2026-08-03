@@ -1,8 +1,8 @@
 local config    = require("dock.config")
-local fixedwin  = require("dock.tk.fixedwin")
+local fixedwin  = require("dock.util.fixedwin")
 local highlight = require("dock.highlight")
-local throttle  = require("dock.tk.throttle")
-local ui        = require("dock.tk.ui")
+local throttle  = require("dock.util.throttle")
+local ui        = require("dock.util.ui")
 local winbar    = require("dock.winbar")
 
 --- The panel: a fixed split whose winbar is a flat, numbered list of every

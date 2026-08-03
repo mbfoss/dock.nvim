@@ -121,7 +121,10 @@ function M.build(tabs, width, opts)
             push(_FIXED, tab.icon .. " ")
         end
         push(_ZERO, tab_hl)
-        push(_FIXED, prefix(tab.num))
+        -- A group drawing page tabs keeps its jump number but not its prefix:
+        -- the bracketed numbers are the ones worth reading, and the group tab
+        -- itself is still clickable.
+        if #tab.pages == 0 then push(_FIXED, prefix(tab.num)) end
         push(_CROP, tab.label)
         if tab.unread then
             push(_ZERO, "%#DockUnread#")

@@ -1,6 +1,6 @@
-local ui = require("dock.tk.ui")
+local ui = require("dock.util.ui")
 
----@class dock.tk.fixedwin
+---@class dock.util.fixedwin
 local M = {}
 
 -- A "fixed window" is a split whose size along one axis is pinned:
@@ -10,7 +10,7 @@ local M = {}
 -- live as the user resizes, and re-applied when the layout changes (e.g. the
 -- user opens a new split) so the window recovers its intended size.
 
----@class dock.tk.fixedwin.AxisSpec
+---@class dock.util.fixedwin.AxisSpec
 ---@field split string                    :split subcommand, combined with a placement modifier
 ---@field fix   string                    window option that pins the axis
 ---@field frame "col"|"row"               parent frame kind that makes re-pinning safe
@@ -18,7 +18,7 @@ local M = {}
 ---@field get   fun(win: integer): integer
 ---@field set   fun(win: integer, n: integer)
 
----@type table<string, dock.tk.fixedwin.AxisSpec>
+---@type table<string, dock.util.fixedwin.AxisSpec>
 local _AXES = {
     height = {
         split = "split",
@@ -54,7 +54,7 @@ local function _parent_frame(node, target)
     return nil
 end
 
----@class dock.tk.fixedwin.Opts
+---@class dock.util.fixedwin.Opts
 ---@field min?   integer  minimum size (lines/columns); default 1
 ---@field enter? boolean  leave the cursor in the new window; default false (returns to the previous window)
 ---@field pos?   nil|"topleft"|"botright"|"leftabove" placement modifier for the split
@@ -72,7 +72,7 @@ end
 ---@param axis "height"|"width"
 ---@param ratio number                     fraction of total lines/columns (0..1)
 ---@param on_delete? fun(ratio: number)     called when the window closes, with the last-known ratio
----@param opts? dock.tk.fixedwin.Opts
+---@param opts? dock.util.fixedwin.Opts
 ---@return integer winid, integer group
 function M.create_fixed_win(axis, ratio, on_delete, opts)
     local spec = assert(_AXES[axis], "fixedwin: unknown axis " .. tostring(axis))
