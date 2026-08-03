@@ -13,12 +13,12 @@ the window, the tab bar, the numbering, and the focus rules.
 ┌────────────────────────────────────────────────────────┐
 │ editor                                                 │
 ├────────────────────────────────────────────────────────┤
-│ ✓ build [2:out|3:diag•] │ ⇪ 4:deploy │ ❯ 5:zsh         │
+│ ✓ build [1:out|2:diag•] │ ⇪ 3:deploy │ ❯ 4:zsh         │
 │ ...buffer contents...                                  │
 └────────────────────────────────────────────────────────┘
 ```
 
-Everything in that bar is clickable, and every tab has a number you can jump to.
+Everything selectable in that bar is clickable, and has a number you can jump to.
 
 ## Requirements
 
@@ -47,10 +47,11 @@ Three nouns, and only the first is yours to manage:
 | **group**  | one tab. Has a label, an optional badge, and pages. |
 | **page**   | one buffer inside a group. |
 
-A group with a single page renders as one tab. A group with several renders as a
-tab plus a bracketed page list — so the common case stays visually quiet. The
-group tab has no buffer of its own: selecting it (by click or by number) shows
-the group's highest-`priority` page.
+A group with a single page renders as one numbered tab, and selecting it — by
+click or by number — shows that page. A group with several renders as a heading
+plus a bracketed list of numbered page tabs, so the common case stays visually
+quiet. The heading is only a label: the pages carry the numbers, starting at the
+one the group would have had, and it is not itself clickable.
 
 Groups belong to the panel, not to its window: closing the panel tears down only
 the window, and reopening restores every tab exactly as it was.

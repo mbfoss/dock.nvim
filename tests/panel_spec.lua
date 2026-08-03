@@ -270,13 +270,31 @@ describe("dock", function()
             assert.are.equal(1, #targets)
         end)
 
-        it("numbers a multi-page group per page", function()
+        it("numbers a multi-page group per page and not the group", function()
             local group = src:group({ label = "build" })
             group:page({ buf = scratch(), label = "out" })
             group:page({ buf = scratch(), label = "err" })
-            local _, targets = panel():_build_tabs()
-            -- one for the group tab, one per page
-            assert.are.equal(3, #targets)
+            local tabs, targets = panel():_build_tabs()
+            -- one per page; the group tab itself is not a target
+            assert.are.equal(2, #targets)
+            assert.is_nil(tabs[1].num)
+        end)
+
+        it("numbers pages from the group's own number", function()
+            local one = src:group({ label = "one" })
+            one:page({ buf = scratch() })
+
+            local group = src:group({ label = "build" })
+            local a     = scratch()
+            local b     = scratch()
+            group:page({ buf = a, label = "out" })
+            group:page({ buf = b, label = "err" })
+
+            -- tab 1 is the single-page group; this group's pages take 2 and 3
+            assert.is_true(dock.jump(2))
+            assert.are.equal(a, shown())
+            assert.is_true(dock.jump(3))
+            assert.are.equal(b, shown())
         end)
 
         it("jumps to a page by number", function()
@@ -286,9 +304,9 @@ describe("dock", function()
             group:page({ buf = a, label = "out" })
             group:page({ buf = b, label = "err" })
 
-            assert.is_true(dock.jump(2))
+            assert.is_true(dock.jump(1))
             assert.are.equal(a, shown())
-            assert.is_true(dock.jump(3))
+            assert.is_true(dock.jump(2))
             assert.are.equal(b, shown())
         end)
 

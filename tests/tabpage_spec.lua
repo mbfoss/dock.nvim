@@ -98,7 +98,7 @@ describe("dock across tabpages", function()
         assert.are.equal(a, shown())
 
         -- jumping in one tabpage moves them all: one panel, one active page
-        assert.is_true(dock.jump(3))
+        assert.is_true(dock.jump(2))
         assert.are.equal(b, shown())
         assert.are.equal(b, shown(first))
     end)

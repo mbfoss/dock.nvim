@@ -68,8 +68,9 @@ function M.toggle(opts)
     Panel.get():toggle(opts)
 end
 
---- Select the nth tab. Numbering is flat across the winbar: every group tab and
---- every page tab has one sequential number.
+--- Select the nth tab. Numbering is flat across the winbar: one sequential
+--- number per selectable tab — the group tab when it has a single page, each
+--- page tab when it has several.
 ---@param n     integer
 ---@param opts? { enter?: boolean }
 ---@return boolean ok

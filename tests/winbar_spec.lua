@@ -22,6 +22,16 @@ local function tab(spec)
     }, spec)
 end
 
+--- A group tab drawing page tabs: no number of its own, the pages carry them.
+---@param label string
+---@param pages dock.winbar.Page[]
+---@return dock.winbar.Tab
+local function grouped(label, pages)
+    local t = tab({ label = label, pages = pages })
+    t.num = nil
+    return t
+end
+
 --- Visible width of a rendered winbar: strip the zero-width statusline escapes
 --- (`%#Group#`, `%N@fn@`, `%X`) the same way Neovim does when it lays the bar out.
 ---@param s string
@@ -64,46 +74,48 @@ describe("winbar.build", function()
         assert.is_truthy(out:find("build", 1, true))
     end)
 
-    it("emits a click region per tab and per page", function()
+    it("emits a click region per selectable tab", function()
         local out = winbar.build({
-            tab({
-                num   = 1,
-                pages = {
-                    { num = 2, label = "out", current = true,  unread = false },
-                    { num = 3, label = "err", current = false, unread = false },
-                },
-            }),
+            tab({ num = 1, label = "one" }),
+            tab({ num = 2, label = "two" }),
         }, 80, OPTS)
-        for _, n in ipairs({ 1, 2, 3 }) do
+        for _, n in ipairs({ 1, 2 }) do
             assert.is_truthy(out:find("%" .. n .. "@v:lua.__dock_click@", 1, true))
         end
     end)
 
-    it("drops the group's number prefix once it draws page tabs", function()
+    it("numbers pages from the group's own number, not past it", function()
         local out = winbar.build({
-            tab({
-                num   = 1,
-                label = "build",
-                pages = {
-                    { num = 2, label = "out", current = true,  unread = false },
-                    { num = 3, label = "err", current = false, unread = false },
-                },
+            grouped("build", {
+                { num = 1, label = "out", current = true,  unread = false },
+                { num = 2, label = "err", current = false, unread = false },
+            }),
+            tab({ num = 3, label = "deploy" }),
+        }, 80, OPTS)
+        assert.is_truthy(out:find("1:out", 1, true))
+        assert.is_truthy(out:find("2:err", 1, true))
+        assert.is_truthy(out:find("3:deploy", 1, true))
+    end)
+
+    it("leaves a group that draws page tabs unnumbered and unclickable", function()
+        local out = winbar.build({
+            grouped("build", {
+                { num = 1, label = "out", current = true,  unread = false },
+                { num = 2, label = "err", current = false, unread = false },
             }),
         }, 80, OPTS)
         assert.is_nil(out:find("1:build", 1, true))
         assert.is_truthy(out:find("build", 1, true))
-        assert.is_truthy(out:find("2:out", 1, true))
-        assert.is_truthy(out:find("3:err", 1, true))
+        -- exactly two click regions, one per page
+        local clicks = select(2, out:gsub("%%%d+@v:lua%.__dock_click@", ""))
+        assert.are.equal(2, clicks)
     end)
 
     it("marks unread pages", function()
         local out = winbar.build({
-            tab({
-                num   = 1,
-                pages = {
-                    { num = 2, label = "out", current = false, unread = true },
-                    { num = 3, label = "err", current = true,  unread = false },
-                },
+            grouped("build", {
+                { num = 1, label = "out", current = false, unread = true },
+                { num = 2, label = "err", current = true,  unread = false },
             }),
         }, 80, OPTS)
         assert.is_truthy(out:find("DockUnread", 1, true))
@@ -146,9 +158,9 @@ describe("winbar.build", function()
             -- escapes the bar would silently overflow the window.
             local pages = {}
             for i = 1, 6 do
-                pages[i] = { num = i + 1, label = "page-label-" .. i, current = false, unread = false }
+                pages[i] = { num = i, label = "page-label-" .. i, current = false, unread = false }
             end
-            local out = winbar.build({ tab({ num = 1, pages = pages }) }, 50, OPTS)
+            local out = winbar.build({ grouped("build", pages) }, 50, OPTS)
             assert.is_true(visible_width(out) <= 50)
         end)
 

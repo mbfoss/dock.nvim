@@ -623,18 +623,15 @@ function Panel:_build_tabs()
     local tabs, targets = {}, {}
 
     for _, group in ipairs(self._groups) do
-        local badge      = group.badge
-        local tab_num    = #targets + 1
-        targets[tab_num] = { group = group, page = 0 }
+        local badge  = group.badge
 
-        local unread     = false
+        local unread = false
         for _, page in ipairs(group.pages) do
             if self._unread[page.buf] then unread = true end
         end
 
         ---@type dock.winbar.Tab
         local tab = {
-            num     = tab_num,
             label   = group.label,
             icon    = badge and badge.icon,
             icon_hl = badge and badge.hl,
@@ -643,7 +640,9 @@ function Panel:_build_tabs()
             pages   = {},
         }
 
-        -- A single page needs no page tab: the group tab already selects it.
+        -- A single page needs no page tab: the group tab already selects it, and
+        -- takes the number. Once there are page tabs they are what you select,
+        -- so the group tab is a heading — no number, and nothing to click.
         if #group.pages > 1 then
             for pi, page in ipairs(group.pages) do
                 local page_num    = #targets + 1
@@ -657,6 +656,10 @@ function Panel:_build_tabs()
             end
             -- page tabs carry the unread markers; don't double up on the group tab
             tab.unread = false
+        else
+            local tab_num    = #targets + 1
+            targets[tab_num] = { group = group, page = 0 }
+            tab.num          = tab_num
         end
 
         tabs[#tabs + 1] = tab
@@ -692,8 +695,9 @@ end
 
 -- Navigation
 
---- Select the nth tab. Numbering is flat across the whole winbar — every group
---- tab and every page tab gets one sequential number.
+--- Select the nth tab. Numbering is flat across the whole winbar — one
+--- sequential number per selectable tab, which is the group tab for a
+--- single-page group and each page tab for a group with several.
 ---@param n     integer
 ---@param opts? { enter?: boolean }
 ---@return boolean ok

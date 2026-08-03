@@ -6,19 +6,16 @@ local ui     = require("dock.util.ui")
 --- It is written against the public source/group API and nothing else, so it
 --- doubles as the reference example for plugins embedding their own buffers.
 ---
---- Every shell lands in the same "Shell" group, one page per shell, labelled
---- with the command it runs — so a handful of open shells cost one tab, not one
---- tab each.
+--- Every shell is its own tab, labelled with the command it runs, so each one is
+--- a single number away in the winbar.
 ---@class dock.shell
 local M      = {}
 
--- A shell tab keeps the same neutral glyph whether its shells are running or
--- have exited — unlike a task, "finished" is not a result worth colouring. Only
--- the `busy` flag differs, which is what keeps a live shell out of bulk disposal.
+-- A shell tab keeps the same neutral glyph whether its shell is running or has
+-- exited — unlike a task, "finished" is not a result worth colouring. Only the
+-- `busy` flag differs, which is what keeps a live shell out of bulk disposal.
 local _BADGE_LIVE = { icon = "❯", hl = "DockBadgeMuted", busy = true }
 local _BADGE_DEAD = { icon = "❯", hl = "DockBadgeMuted" }
-
-local _GROUP_ID   = "shell"
 
 local _source     = nil ---@type dock.Source?
 

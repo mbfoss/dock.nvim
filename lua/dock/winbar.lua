@@ -21,7 +21,8 @@ local _MIN_LABEL = 2
 ---@field unread  boolean  gained lines while not visible
 
 ---@class dock.winbar.Tab
----@field num     integer  global jump number for the group's own tab
+---@field num     integer? global jump number for the group's own tab; nil once it
+---                       draws page tabs, which carry the numbers instead
 ---@field label   string
 ---@field icon    string?  glyph before the label; the tab draws none when nil
 ---@field icon_hl string?  highlight for `icon`
@@ -115,22 +116,23 @@ function M.build(tabs, width, opts)
         end
         push(_FIXED, " ")
 
-        open_click(tab.num)
+        -- A group drawing page tabs has no number of its own: the bracketed
+        -- numbers are the ones worth reading, and with every page directly
+        -- selectable the group tab has nothing left to select. It reads as a
+        -- heading for them, so it is not clickable either.
+        if tab.num then open_click(tab.num) end
         if tab.icon then
             push(_ZERO, "%#" .. (tab.icon_hl or "WinBar") .. "#")
             push(_FIXED, tab.icon .. " ")
         end
         push(_ZERO, tab_hl)
-        -- A group drawing page tabs keeps its jump number but not its prefix:
-        -- the bracketed numbers are the ones worth reading, and the group tab
-        -- itself is still clickable.
-        if #tab.pages == 0 then push(_FIXED, prefix(tab.num)) end
+        if tab.num then push(_FIXED, prefix(tab.num)) end
         push(_CROP, tab.label)
         if tab.unread then
             push(_ZERO, "%#DockUnread#")
             push(_FIXED, opts.unread)
         end
-        close_click()
+        if tab.num then close_click() end
 
         if #tab.pages > 0 then
             push(_FIXED, " [")
