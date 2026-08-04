@@ -180,7 +180,7 @@ describe("dock across tabpages", function()
         assert.are.equal(buf, shown())
     end)
 
-    it("keeps one Shell tab across tabpages", function()
+    it("puts shells started in different tabpages in the same panel", function()
         local first = dock.shell()
         vim.cmd("stopinsert")
 
@@ -188,11 +188,13 @@ describe("dock across tabpages", function()
         local second = dock.shell()
         vim.cmd("stopinsert")
 
-        assert.are.equal(first, second)
-        assert.are.equal(1, #dock.groups())
-        assert.are.equal(2, #first.pages)
+        -- a tab each, and both reachable from either tabpage
+        assert.are_not.equal(first, second)
+        assert.are.equal(2, #dock.groups())
+        assert.are.equal(second, dock.panel():active())
 
         first:dispose()
+        second:dispose()
         assert.are.equal(0, #dock.groups())
     end)
 end)

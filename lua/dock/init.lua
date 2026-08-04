@@ -90,8 +90,7 @@ function M.disposable()
     return Panel.get():disposable()
 end
 
---- Run a shell — or a command — as a page of the shared "Shell" tab (builtin
---- source).
+--- Run a shell — or a command — in its own tab (builtin source).
 ---@param opts? dock.ShellOpts
 ---@return dock.Group?
 function M.shell(opts)

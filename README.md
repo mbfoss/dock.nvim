@@ -182,8 +182,8 @@ not visible. Nothing to wire up.
 | `:Dock open` / `close` / `toggle` | in this tabpage |
 | `:Dock! close` | hide the dock in every tabpage |
 | `:Dock next` / `prev` | step through tabs, wrapping |
-| `:Dock shell` | open a shell in the Shell tab |
-| `:Dock shell echo 3` | run that command there instead |
+| `:Dock shell` | open a shell in its own tab |
+| `:Dock shell echo 3` | run that command instead of a shell |
 | `:Dock dispose` | pick a finished tab to close |
 | `:Dock! dispose` | close every finished tab |
 
@@ -192,18 +192,18 @@ Rename it with `setup({ command = "Panel" })`, or disable it with
 
 ## Builtin: shell
 
-dock ships one source of its own — shells in a panel tab:
+dock ships one source of its own — shells in panel tabs:
 
 ```lua
 require("dock").shell({ cwd = vim.fn.getcwd() })
 require("dock").shell({ cmd = "echo 3" })
 ```
 
-Every shell joins the same **Shell** tab as one more page, labelled with the
-command it runs (`zsh`, `echo 3`), so ten open shells still cost one tab. The
-tab stays busy while any of its shells is running, and pages survive their
-command exiting so the scrollback stays readable; a page is dropped when its
-terminal buffer is deleted, and the tab goes with its last page.
+Every shell is its own tab, labelled with the command it runs (`zsh`, `echo 3`),
+so each one is a single number away in the winbar. A tab stays busy while its
+shell is running — which is what keeps it out of `:Dock! dispose` — and survives
+the command exiting so the scrollback stays readable; it is dropped when its
+terminal buffer is deleted, whether by you or by disposing the tab.
 
 `lua/dock/shell.lua` is written against nothing but the public API, so it
 doubles as a worked example of embedding a plugin's buffers.
@@ -260,7 +260,7 @@ All defined with `default = true`, so a colourscheme always wins.
 | `open(opts?)` / `close(opts?)` / `toggle(opts?)` | this tabpage's window; `opts.enter` focuses it, `close({ all = true })` hides every one |
 | `jump(n, opts?)` | select tab `n`; returns `false` if out of range |
 | `groups()` / `disposable()` | all groups / the non-busy ones |
-| `shell(opts?)` | run a shell/command as a page of the Shell tab |
+| `shell(opts?)` | run a shell/command in its own tab |
 
 **`Source`**
 
