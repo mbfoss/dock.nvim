@@ -15,7 +15,7 @@ local M      = {}
 -- exited — unlike a task, "finished" is not a result worth colouring. What
 -- changes on exit is the group's `busy` flag, which is what keeps a live shell
 -- out of bulk disposal.
-local _BADGE  = { icon = "❯", hl = "DockBadgeMuted" }
+local _BADGE  = { icon = "󰆍", hl = "DockBadgeMuted" }
 
 local _source = nil ---@type dock.Source?
 
