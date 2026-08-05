@@ -26,9 +26,14 @@ Neovim >= 0.10 (for `'winfixbuf'`).
 
 ## Install
 
-Any plugin manager, or `pack/*/opt` plus `:packadd dock.nvim`. Calling
-`setup()` is optional — the `:Dock` command exists and the defaults work
-untouched.
+With Neovim 0.12's builtin plugin manager:
+
+```lua
+vim.pack.add({ "https://github.com/mbfoss/dock.nvim" })
+```
+
+Any other plugin manager works too. Calling `setup()` is optional — the `:Dock`
+command exists and the defaults work untouched.
 
 ```lua
 require("dock").setup({
