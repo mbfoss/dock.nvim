@@ -751,14 +751,13 @@ function Panel:active()
     return self._active
 end
 
---- Groups that are not busy, i.e. safe to close in bulk.
----@return dock.Group[]
-function Panel:disposable()
-    local out = {}
-    for _, group in ipairs(self._groups) do
-        if not group:is_busy() then out[#out + 1] = group end
-    end
-    return out
+--- The group a winbar number selects, for commands that act on one tab.
+---@param n integer
+---@return dock.Group?
+function Panel:group_at(n)
+    local _, targets = self:_build_tabs()
+    local target     = targets[n]
+    return target and target.group or nil
 end
 
 -- Winbar click handler. The `%N@fn@` syntax needs a global, and there is exactly

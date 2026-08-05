@@ -95,34 +95,57 @@ local src   = dock.source("myplugin")
 -- per unit of work
 local group = src:group({
   label = "build",
-  badge = { icon = "▶", hl = "DockBadgeOk", busy = true },
+  badge = { icon = "▶", hl = "DockBadgeOk" },
+  busy  = true,
 })
 group:page({ buf = stdout_buf, label = "out" })
 
 -- later
 group:page({ buf = diag_buf, label = "diag", priority = 5 })
 group:set_badge({ icon = "✓", hl = "DockBadgeOk" })
+group:set_busy(false)
 ```
 
 That is the whole integration. No window handling, no layout code.
 
-### Buffer ownership
+### Buffer ownership and cleaning
 
-dock **never deletes a buffer it did not create**. Pages are borrowed. When
-the panel wants a group gone it calls that group's `on_dispose`, and the source
-decides what happens to the buffers:
+dock **never deletes a buffer it did not create**, and never removes a tab on
+its own. Pages are borrowed; the source owns them and is the only party that
+knows when one has stopped mattering.
+
+So there is no "close this tab" in dock — there is `clean`, a request to shed
+what is no longer needed. `:Dock clean` asks every tab, `:Dock clean 3` asks the
+one numbered 3, and each source answers by doing whatever is right for it:
 
 ```lua
 local group = src:group({
-  label      = "build",
-  on_dispose = function(g)
+  label    = "build",
+  on_clean = function(g)
+    if job_still_running then return end          -- ignoring the request is an answer
     vim.api.nvim_buf_delete(g.data.buf, { force = true })
+    g:remove()                                    -- and the tab goes with it
   end,
 })
 ```
 
-`group:remove()` detaches the tab and leaves the buffers alone;
-`group:dispose()` detaches and then runs `on_dispose`.
+A group with no `on_clean` keeps everything, which is the right default for a
+tab whose buffers belong to something else. `group:clean()` reports whether the
+tab is gone afterwards — that is how `:Dock clean` counts what it closed, not by
+deciding anything itself.
+
+`group:remove()` is the other half: it detaches the tab and leaves the buffers
+alone, for a source tearing down its own tabs (`source:clear()` does it for all
+of them). Between them, every removal is the source's call.
+
+### Busy
+
+`busy` says the group is still working. Set it in the spec or with
+`group:set_busy(…)`; it is a plain flag, unrelated to the badge glyph, and it
+says nothing about lifetime — the panel prefers a busy tab when it has to pick
+one to show, and a `focus = "always"` group keeps the view until it stops being
+busy. Whether a tab may go is `on_clean`'s business, though a source is free to
+consult `is_busy()` there.
 
 ### Who gets the view
 
@@ -149,7 +172,7 @@ it is:
 ```lua
 local group = src:group({
   label = "deploy",
-  badge = { icon = "⇪", hl = "DockBadgeWarn", busy = true },
+  badge = { icon = "⇪", hl = "DockBadgeWarn" },
 })
 group:set_badge({ icon = "✓", hl = "DockBadgeOk" })  -- nil drops the glyph
 ```
@@ -158,10 +181,9 @@ group:set_badge({ icon = "✓", hl = "DockBadgeOk" })  -- nil drops the glyph
 |---|---|
 | `icon` | single-cell glyph |
 | `hl` | highlight group for the glyph |
-| `busy` | the group is still working |
 
-`busy` groups are excluded from `dock.disposable()`, so a bulk close can never
-yank a buffer out from under a running job. A group with no badge is never busy.
+A badge is presentation only; whether a tab is still working is the group's
+`busy` flag, and whether it goes away is `on_clean`.
 
 The `DockBadge*` highlight groups below are there to hint from, but any
 highlight group works.
@@ -184,8 +206,8 @@ not visible. Nothing to wire up.
 | `:Dock next` / `prev` | step through tabs, wrapping |
 | `:Dock shell` | open a shell in its own tab |
 | `:Dock shell echo 3` | run that command instead of a shell |
-| `:Dock dispose` | pick a finished tab to close |
-| `:Dock! dispose` | close every finished tab |
+| `:Dock clean` | ask every tab to shed what it no longer needs |
+| `:Dock clean N` | ask only tab `N` |
 
 Rename it with `setup({ command = "Panel" })`, or disable it with
 `command = false`.
@@ -201,9 +223,9 @@ require("dock").shell({ cmd = "echo 3" })
 
 Every shell is its own tab, labelled with the command it runs (`zsh`, `echo 3`),
 so each one is a single number away in the winbar. A tab stays busy while its
-shell is running — which is what keeps it out of `:Dock! dispose` — and survives
-the command exiting so the scrollback stays readable; it is dropped when its
-terminal buffer is deleted, whether by you or by disposing the tab.
+shell is running and survives the command exiting, so the scrollback stays
+readable; `:Dock clean` wipes the terminal of a shell that has exited and drops
+its tab, and leaves a running one alone.
 
 `lua/dock/shell.lua` is written against nothing but the public API, so it
 doubles as a worked example of embedding a plugin's buffers.
@@ -259,7 +281,8 @@ All defined with `default = true`, so a colourscheme always wins.
 | `panel()` | the shared `Panel` |
 | `open(opts?)` / `close(opts?)` / `toggle(opts?)` | this tabpage's window; `opts.enter` focuses it, `close({ all = true })` hides every one |
 | `jump(n, opts?)` | select tab `n`; returns `false` if out of range |
-| `groups()` / `disposable()` | all groups / the non-busy ones |
+| `groups()` | every group, oldest first |
+| `clean(n?)` | ask every tab — or just tab `n` — to shed itself; returns how many went |
 | `shell(opts?)` | run a shell/command in its own tab |
 
 **`Source`**
@@ -268,7 +291,7 @@ All defined with `default = true`, so a colourscheme always wins.
 |---|---|
 | `group(spec?)` | create a tab; reusing an `id` returns the existing group |
 | `get(id)` / `groups()` | |
-| `clear(opts?)` | dispose this source's groups; `{ busy = true }` includes busy ones |
+| `clean()` / `clear()` | ask this source's groups to shed themselves / detach them outright |
 
 **`Group`**
 
@@ -276,13 +299,14 @@ All defined with `default = true`, so a colourscheme always wins.
 |---|---|
 | `page(spec)` | add a buffer → `Page` |
 | `remove_page(page\|buf)` | |
-| `set_label(s)` / `set_badge(b?)` | chainable |
+| `set_label(s)` / `set_badge(b?)` / `set_busy(b)` | chainable |
 | `activate(opts?)` | show it; `{ page = …, buf = …, enter = … }` |
-| `remove()` / `dispose()` | detach / detach and run `on_dispose` |
+| `remove()` | detach; buffers untouched |
+| `clean()` | run `on_clean`; returns whether the tab is gone afterwards |
 | `is_busy()` / `is_removed()` | |
 
-`GroupSpec`: `id`, `label`, `badge`, `focus`, `data`,
-`remove_when_empty`, `auto_open`, `on_dispose`, `on_activate`.
+`GroupSpec`: `id`, `label`, `badge`, `busy`, `focus`, `data`,
+`remove_when_empty`, `auto_open`, `on_clean`, `on_activate`.
 
 `PageSpec`: `buf`, `label`, `priority`, `activate`.
 

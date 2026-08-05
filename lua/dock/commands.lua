@@ -50,32 +50,23 @@ _actions.jump = function(args)
     end
 end
 
---- `dispose` closes one finished tab picked from a list; `dispose!` closes them
---- all. Busy tabs are never offered — a source marks a group busy precisely so a
---- bulk close cannot pull the buffer out from under a running job.
-_actions.dispose = function(_, bang)
-    local dock = require("dock")
-    local ui       = require("dock.util.ui")
-
-    local groups   = dock.disposable()
-    if #groups == 0 then
-        ui.notify_info("no finished tabs to close")
+--- `clean` asks every source to shed what it no longer needs — `:Dock clean 3`
+--- asks only the tab numbered 3. Each source answers for itself, so a tab whose
+--- work is still going simply stays; nothing here overrides that.
+_actions.clean = function(args)
+    local n = args[1] and tonumber(args[1]) or nil
+    if args[1] and not n then
+        require("dock.util.ui").notify_warning("clean takes a tab number, or nothing")
         return
     end
 
-    if bang then
-        for _, group in ipairs(groups) do group:dispose() end
-        return
+    local cleaned = require("dock").clean(n)
+    local ui      = require("dock.util.ui")
+    if cleaned == 0 then
+        ui.notify_info("nothing to clean")
+    else
+        ui.notify_info(("closed %d tab%s"):format(cleaned, cleaned == 1 and "" or "s"))
     end
-
-    vim.ui.select(groups, {
-        prompt = "Close tab:",
-        format_item = function(group)
-            return group.label
-        end,
-    }, function(choice)
-        if choice then choice:dispose() end
-    end)
 end
 
 local _SUBCOMMANDS = vim.tbl_keys(_actions)

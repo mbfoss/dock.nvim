@@ -1,7 +1,6 @@
 ---@class dock.Badge
 ---@field icon  string    single-cell glyph shown before the tab label
 ---@field hl    string    highlight group for the glyph
----@field busy? boolean   the group is still working; busy groups are never auto-disposed
 
 --- A group is one tab in the panel: a label, an optional badge, and an ordered
 --- list of pages (buffers). The owning source mutates it through these methods;
@@ -16,8 +15,9 @@
 ---@field data              table                 free-form, owned by the source
 ---@field focus             "auto"|"never"|"always"
 ---@field badge             dock.Badge?           glyph drawn before the tab label; none when nil
+---@field busy              boolean               the group is still working
 ---@field remove_when_empty boolean               drop the tab once its last page goes away
----@field on_dispose        fun(group: dock.Group)?   called by :dispose() so the source can free buffers
+---@field on_clean          fun(group: dock.Group)?   called by :clean() so the source can shed what it no longer needs
 ---@field on_activate       fun(group: dock.Group, page: dock.Page?)?
 ---@field _source           dock.Source
 ---@field _panel            dock.Panel
@@ -34,11 +34,12 @@ Group.__index = Group
 ---@field id?                string                  stable id for source:get(); defaults to a generated one
 ---@field label?             string                  tab text; defaults to the id
 ---@field badge?             dock.Badge              glyph drawn before the tab label
+---@field busy?              boolean                 the group is still working; default false
 ---@field focus?             "auto"|"never"|"always" how eagerly the tab takes over the panel; default "auto"
 ---@field data?              table
 ---@field remove_when_empty? boolean
 ---@field auto_open?         boolean                 override config.auto_open for this group
----@field on_dispose?        fun(group: dock.Group)
+---@field on_clean?          fun(group: dock.Group)  asked to shed the tab; ignoring the request is valid
 ---@field on_activate?       fun(group: dock.Group, page: dock.Page?)
 
 ---@param source dock.Source
@@ -50,11 +51,12 @@ function Group.new(source, panel, spec)
         id                = spec.id,
         label             = spec.label or spec.id,
         badge             = spec.badge,
+        busy              = spec.busy or false,
         focus             = spec.focus or "auto",
         pages             = {},
         data              = spec.data or {},
         remove_when_empty = spec.remove_when_empty or false,
-        on_dispose        = spec.on_dispose,
+        on_clean          = spec.on_clean,
         on_activate       = spec.on_activate,
         _source           = source,
         _panel            = panel,
@@ -62,12 +64,25 @@ function Group.new(source, panel, spec)
     }, Group)
 end
 
---- True while the group is still working. Busy groups are excluded from
---- `dock.disposable()` so an in-flight job is never swept up by a bulk close.
+--- True while the group is still working. Presentation only: the panel prefers
+--- a busy tab when it has to pick one to show. Whether a tab may go is never
+--- dock's call — see `clean()`.
 ---@return boolean
 function Group:is_busy()
-    return self.badge ~= nil and self.badge.busy == true
+    return self.busy
 end
+
+---@param busy boolean
+---@return dock.Group self
+function Group:set_busy(busy)
+    busy = busy and true or false
+    if self.busy ~= busy then
+        self.busy = busy
+        self._panel:_group_changed(self)
+    end
+    return self
+end
+
 
 ---@return boolean
 function Group:is_removed()
@@ -161,8 +176,8 @@ function Group:activate(opts)
     return self
 end
 
---- Detach the group from the panel. Buffers are left alone; use `dispose()` when
---- the source should clean them up too.
+--- Detach the group from the panel. Buffers are left alone — the source owns
+--- them, and decides in `on_clean` whether they outlive the tab.
 function Group:remove()
     if self._removed then return end
     self._removed = true
@@ -170,15 +185,18 @@ function Group:remove()
     self._panel:_group_removed(self)
 end
 
---- Remove the group and let the source release its buffers via `on_dispose`.
---- This is what the panel's own close/dispose commands call.
-function Group:dispose()
-    if self._removed then return end
-    local on_dispose = self.on_dispose
-    -- Detach first: the panel must move off any buffer the source is about to
-    -- delete, or deleting it would tear down the panel window with it.
-    self:remove()
-    if on_dispose then on_dispose(self) end
+--- Ask the source to shed this tab: release the buffers it no longer needs and
+--- drop the tab when it is done with them.
+---
+--- A clean is a hint, not an order. dock has no idea whether a buffer still
+--- matters, so it never deletes one and never removes a tab on its own — it
+--- asks, and the source answers by doing whatever is right for it, including
+--- nothing. A group with no `on_clean` keeps everything.
+---@return boolean removed  whether the tab is gone now
+function Group:clean()
+    if self._removed then return true end
+    if self.on_clean then self.on_clean(self) end
+    return self._removed
 end
 
 return Group

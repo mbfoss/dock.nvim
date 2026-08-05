@@ -84,10 +84,22 @@ function M.groups()
     return Panel.get():groups()
 end
 
---- Groups that are not busy, i.e. safe to close.
----@return dock.Group[]
-function M.disposable()
-    return Panel.get():disposable()
+--- Ask sources to shed what they no longer need: every tab, or just the one a
+--- winbar number selects. Each group answers for itself and may keep everything
+--- (see `Group:clean`), so this reports how many tabs actually went.
+---@param n? integer  tab number as shown in the winbar; omit to ask every tab
+---@return integer cleaned
+function M.clean(n)
+    local panel = Panel.get()
+    if n then
+        local group = panel:group_at(n)
+        return (group and group:clean()) and 1 or 0
+    end
+    local cleaned = 0
+    for _, group in ipairs(panel:groups()) do
+        if group:clean() then cleaned = cleaned + 1 end
+    end
+    return cleaned
 end
 
 --- Run a shell — or a command — in its own tab (builtin source).

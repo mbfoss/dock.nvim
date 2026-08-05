@@ -63,7 +63,7 @@ describe("dock", function()
             assert.are.equal(1, #src:groups())
             assert.are.equal(1, #other:groups())
             assert.are.equal(2, #dock.groups())
-            other:clear({ busy = true })
+            other:clear()
         end)
     end)
 
@@ -330,41 +330,68 @@ describe("dock", function()
         end)
     end)
 
-    describe("badges and disposal", function()
-        it("takes busy from the caller's badge", function()
-            local group = src:group({
-                label = "build",
-                badge = { icon = "▶", hl = "DockBadgeOk", busy = true },
-            })
+    describe("badges and cleaning", function()
+        it("takes busy from the spec and tracks set_busy", function()
+            local group = src:group({ label = "build", busy = true })
             assert.is_true(group:is_busy())
-            group:set_badge({ icon = "✓", hl = "DockBadgeOk" })
+            group:set_busy(false)
             assert.is_false(group:is_busy())
         end)
 
-        it("treats a group without a badge as idle", function()
+        it("treats a group that never said otherwise as idle", function()
             assert.is_false(src:group({ label = "plain" }):is_busy())
         end)
 
-        it("excludes busy groups from disposable()", function()
-            src:group({ label = "running", badge = { icon = "▶", hl = "DockBadgeOk", busy = true } })
-            local done = src:group({ label = "done", badge = { icon = "✓", hl = "DockBadgeOk" } })
-            local list = dock.disposable()
-            assert.are.equal(1, #list)
-            assert.are.equal(done, list[1])
+        it("cleans nothing when no group has an on_clean", function()
+            src:group({ label = "a" })
+            src:group({ label = "b" })
+            assert.are.equal(0, dock.clean())
+            assert.are.equal(2, #dock.groups())
         end)
 
-        it("calls on_dispose so the source can free buffers", function()
+        it("lets a source keep its tab by ignoring the request", function()
+            local asked = 0
+            local group = src:group({
+                label    = "running",
+                on_clean = function() asked = asked + 1 end,   -- keeps everything
+            })
+            assert.are.equal(0, dock.clean())
+            assert.are.equal(1, asked)
+            assert.is_false(group:is_removed())
+            assert.are.equal(1, #dock.groups())
+        end)
+
+        it("counts only the tabs a source actually dropped", function()
+            src:group({ label = "keep", on_clean = function() end })
+            src:group({ label = "go", on_clean = function(g) g:remove() end })
+            assert.are.equal(1, dock.clean())
+            assert.are.equal(1, #dock.groups())
+        end)
+
+        it("cleans a single tab by its winbar number", function()
+            local first  = src:group({ label = "one", on_clean = function(g) g:remove() end })
+            local second = src:group({ label = "two", on_clean = function(g) g:remove() end })
+            assert.are.equal(1, dock.clean(2))
+            assert.is_false(first:is_removed())
+            assert.is_true(second:is_removed())
+
+            -- a number nothing is at cleans nothing
+            assert.are.equal(0, dock.clean(9))
+        end)
+
+        it("calls on_clean so the source can free its buffers", function()
             local buf    = scratch()
             local called = false
             local group  = src:group({
-                label      = "build",
-                on_dispose = function()
+                label    = "build",
+                on_clean = function(g)
                     called = true
+                    g:remove()
                     vim.api.nvim_buf_delete(buf, { force = true })
                 end,
             })
             group:page({ buf = buf })
-            group:dispose()
+            assert.is_true(group:clean())
 
             assert.is_true(called)
             assert.is_true(group:is_removed())
@@ -424,7 +451,13 @@ describe("dock", function()
             assert.is_true(group:is_busy())
 
             vim.cmd("stopinsert")
-            group:dispose()
+            -- a live shell keeps its tab: cleaning it is a request it declines
+            assert.is_false(group:clean())
+            assert.is_false(group:is_removed())
+
+            -- once the shell is done with, cleaning wipes the terminal with it
+            group:set_busy(false)
+            assert.is_true(group:clean())
             assert.is_true(group:is_removed())
             assert.is_false(vim.api.nvim_buf_is_valid(buf))
         end)
@@ -438,9 +471,9 @@ describe("dock", function()
             assert.are.equal(1, #second.pages)
 
             vim.cmd("stopinsert")
-            first:dispose()
+            first:remove()
             assert.are.equal(1, #dock.groups())
-            second:dispose()
+            second:remove()
             assert.are.equal(0, #dock.groups())
         end)
 
@@ -449,7 +482,7 @@ describe("dock", function()
             assert.are.equal("echo 3", group.label)
 
             vim.cmd("stopinsert")
-            group:dispose()
+            group:remove()
         end)
 
         it("numbers each shell tab on its own", function()
@@ -460,8 +493,8 @@ describe("dock", function()
             assert.are.equal(2, #targets)
 
             vim.cmd("stopinsert")
-            first:dispose()
-            second:dispose()
+            first:remove()
+            second:remove()
         end)
     end)
 end)

@@ -73,12 +73,21 @@ function Source:groups()
     return out
 end
 
---- Dispose every group this source owns, `on_dispose` included.
----@param opts? { busy?: boolean }  busy = true also disposes groups still working
-function Source:clear(opts)
-    local busy = opts and opts.busy
+--- Ask every group this source owns to shed itself (see `Group:clean`).
+---@return integer cleaned  how many tabs went away
+function Source:clean()
+    local n = 0
     for _, group in ipairs(self:groups()) do
-        if busy or not group:is_busy() then group:dispose() end
+        if group:clean() then n = n + 1 end
+    end
+    return n
+end
+
+--- Detach every group this source owns, without asking. The buffers are left
+--- alone; this is for a source tearing its own tabs down, not for cleanup.
+function Source:clear()
+    for _, group in ipairs(self:groups()) do
+        group:remove()
     end
 end
 

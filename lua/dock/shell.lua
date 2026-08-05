@@ -12,12 +12,12 @@ local ui     = require("dock.util.ui")
 local M      = {}
 
 -- A shell tab keeps the same neutral glyph whether its shell is running or has
--- exited — unlike a task, "finished" is not a result worth colouring. Only the
--- `busy` flag differs, which is what keeps a live shell out of bulk disposal.
-local _BADGE_LIVE = { icon = "❯", hl = "DockBadgeMuted", busy = true }
-local _BADGE_DEAD = { icon = "❯", hl = "DockBadgeMuted" }
+-- exited — unlike a task, "finished" is not a result worth colouring. What
+-- changes on exit is the group's `busy` flag, which is what keeps a live shell
+-- out of bulk disposal.
+local _BADGE  = { icon = "❯", hl = "DockBadgeMuted" }
 
-local _source     = nil ---@type dock.Source?
+local _source = nil ---@type dock.Source?
 
 ---@return dock.Source
 local function _get_source()
@@ -65,19 +65,26 @@ end
 
 --- A tab for one shell. `remove_when_empty` drops it when its terminal buffer
 --- goes, so the tab never lingers without a shell behind it.
+---
+--- Cleaning it wipes the terminal — dock spawned that buffer, so it is dock's to
+--- delete — but only once the shell has exited. A live shell keeps its tab: the
+--- scrollback of a running command is not something a sweep should take.
 ---@param label string
 ---@return dock.Group
 local function _group(label)
     return _get_source():group({
         label             = label,
-        badge             = _BADGE_LIVE,
+        badge             = _BADGE,
+        busy              = true,
         remove_when_empty = true,
-        on_dispose        = function(g)
+        on_clean          = function(g)
+            if g:is_busy() then return end
             for _, page in ipairs(vim.list_slice(g.pages)) do
                 if vim.api.nvim_buf_is_valid(page.buf) then
                     pcall(vim.api.nvim_buf_delete, page.buf, { force = true })
                 end
             end
+            g:remove()
         end,
     })
 end
@@ -110,9 +117,9 @@ function M.open(opts)
         env     = opts.env,
         on_exit = function()
             -- The tab stops being busy when its shell exits, which is what lets
-            -- a bulk dispose sweep it up; the scrollback stays until then.
+            -- `:Dock clean` sweep it up; the scrollback stays until then.
             if group and not group:is_removed() then
-                group:set_badge(_BADGE_DEAD)
+                group:set_busy(false)
             end
         end,
     })
