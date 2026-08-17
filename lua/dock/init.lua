@@ -24,8 +24,8 @@ local M      = {}
 
 local _sources = {} ---@type table<string, dock.Source>
 
---- Configure dock. Entirely optional — every entry has a default and the
---- panel works untouched. Safe to call more than once.
+--- Configure dock. Entirely optional — every entry has a default and dock
+--- works untouched. Safe to call more than once.
 ---@param opts? dock.Config
 function M.setup(opts)
     config.apply(opts)

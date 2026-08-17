@@ -2,7 +2,7 @@ local config = require("dock.config")
 local term   = require("dock.util.term")
 local ui     = require("dock.util.ui")
 
---- The one source dock ships itself: shells in a panel tab.
+--- The one source dock ships itself: shells in a dock tab.
 --- It is written against the public source/group API and nothing else, so it
 --- doubles as the reference example for plugins embedding their own buffers.
 ---
@@ -14,7 +14,7 @@ local M      = {}
 -- A shell tab keeps the same neutral glyph whether its shell is running or has
 -- exited — unlike a task, "finished" is not a result worth colouring. What
 -- changes on exit is the group's `busy` flag, which is what keeps a live shell
--- out of bulk disposal.
+-- out of a bulk `clean`.
 local _BADGE  = { icon = "󰆍", hl = "DockBadgeMuted" }
 
 local _source = nil ---@type dock.Source?
@@ -45,7 +45,7 @@ local function _default_cwd()
     return cwd
 end
 
---- Page label for a command: the program's basename plus its arguments, so
+--- Tab label for a command: the program's basename plus its arguments, so
 --- `{ "git", "log" }` and `"echo 3"` read as `git log` and `echo 3`.
 ---@param cmd string|string[]
 ---@return string
@@ -99,7 +99,7 @@ end
 ---
 --- The tab survives its command exiting, so the scrollback stays readable; it is
 --- dropped when the terminal buffer is deleted, either by the user or by
---- disposing the tab.
+--- cleaning the tab.
 ---@param opts? dock.ShellOpts
 ---@return dock.Group?
 function M.open(opts)

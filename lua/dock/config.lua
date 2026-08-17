@@ -1,10 +1,10 @@
 ---@class dock.Config
 ---@field command     string                          user command name; false-y disables it
----@field position    "bottom"|"top"|"left"|"right"   where the panel splits
+---@field position    "bottom"|"top"|"left"|"right"   where the dock splits
 ---@field size        number                          fraction of editor lines/columns (0..1)
 ---@field min_size    integer                         floor in lines/columns
----@field auto_open   boolean                         open the panel when a source adds a group
----@field empty_text  string                          shown when the panel holds no groups
+---@field auto_open   boolean                         open the dock when a source adds a group
+---@field empty_text  string                          shown when there is no page to show
 ---@field winbar      dock.Config.Winbar
 ---@field shell       dock.Config.Shell
 
@@ -24,7 +24,7 @@ local M = {
     size       = 0.22,
     min_size   = 6,
     auto_open  = true,
-    empty_text = "No panels",
+    empty_text = "No pages",
 
     winbar     = {
         separator = "│",

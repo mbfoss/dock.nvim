@@ -1,8 +1,8 @@
 local Group = require("dock.Group")
 
 --- A source is one plugin's handle on the shared panel. It namespaces the groups
---- that plugin owns, so `dock.disposable()` and the panel commands can act on
---- them without any plugin reaching into another's tabs.
+--- that plugin owns, so `:Dock clean` and the other panel commands can act
+--- on them without any plugin reaching into another's tabs.
 ---
 --- Like the panel, a source is editor-wide: its groups are the same set no
 --- matter which Neovim tabpage they were created from.

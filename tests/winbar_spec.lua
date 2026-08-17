@@ -5,7 +5,7 @@ local OPTS   = {
     unread     = "•",
     numbers    = true,
     click      = "v:lua.__dock_click",
-    empty_text = "No panels",
+    empty_text = "No pages",
 }
 
 ---@param spec table
@@ -47,7 +47,7 @@ end
 describe("winbar.build", function()
     it("renders a placeholder when there are no tabs", function()
         local out = winbar.build({}, 80, OPTS)
-        assert.is_truthy(out:find("No panels", 1, true))
+        assert.is_truthy(out:find("No pages", 1, true))
     end)
 
     it("numbers group tabs sequentially", function()

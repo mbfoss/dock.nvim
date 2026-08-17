@@ -58,8 +58,8 @@ plus a bracketed list of numbered page tabs, so the common case stays visually
 quiet. The heading is only a label: the pages carry the numbers, starting at the
 one the group would have had, and it is not itself clickable.
 
-Groups belong to the panel, not to its window: closing the panel tears down only
-the window, and reopening restores every tab exactly as it was.
+Groups belong to the panel, not to its window: closing the dock tears down only
+that window, and reopening restores every tab exactly as it was.
 
 ### One dock, every tabpage
 
@@ -159,9 +159,9 @@ guessing:
 
 | `focus` | behaviour |
 |---|---|
-| `"auto"` (default) | takes over when it appears, unless the user is working inside the panel |
+| `"auto"` (default) | takes over when it appears, unless the user is working inside the dock |
 | `"never"` | never steals the view — for background or dependency work |
-| `"always"` | takes over even when the panel is focused, and keeps the view until it stops being busy — for an explicit user action such as a restart |
+| `"always"` | takes over even when the dock is focused, and keeps the view until it stops being busy — for an explicit user action such as a restart |
 
 Within a group, `priority` decides which page wins. The panel advances to a new
 page only when it **outranks** what is already on screen, so a low-priority log
@@ -204,7 +204,7 @@ not visible. Nothing to wire up.
 
 | | |
 |---|---|
-| `:Dock` | toggle the panel |
+| `:Dock` | toggle the dock in this tabpage |
 | `:Dock 3` | jump to tab 3 (same as `:Dock jump 3`) |
 | `:Dock open` / `close` / `toggle` | in this tabpage |
 | `:Dock! close` | hide the dock in every tabpage |
@@ -214,12 +214,12 @@ not visible. Nothing to wire up.
 | `:Dock clean` | ask every tab to shed what it no longer needs |
 | `:Dock clean N` | ask only tab `N` |
 
-Rename it with `setup({ command = "Panel" })`, or disable it with
+Rename it with `setup({ command = "Tray" })`, or disable it with
 `command = false`.
 
 ## Builtin: shell
 
-dock ships one source of its own — shells in panel tabs:
+dock ships one source of its own — shells in dock tabs:
 
 ```lua
 require("dock").shell({ cwd = vim.fn.getcwd() })
@@ -243,8 +243,8 @@ require("dock").setup({
   position   = "bottom",
   size       = 0.22,
   min_size   = 6,
-  auto_open  = true,        -- open the panel when a source adds a group
-  empty_text = "No panels",
+  auto_open  = true,        -- open the dock when a source adds a group
+  empty_text = "No pages",
 
   winbar = {
     separator = "│",
@@ -259,7 +259,7 @@ require("dock").setup({
 })
 ```
 
-The panel remembers its size: drag its border and the next open uses that ratio.
+The dock remembers its size: drag its border and the next open uses that ratio.
 
 ## Highlights
 
@@ -321,14 +321,14 @@ Two things dock handles that are easy to get wrong on your own:
 
 **Deleting a displayed buffer.** Neovim closes a window when the buffer it shows
 is deleted, and emits `WinClosed` *before* any `BufUnload`/`BufWipeout` autocmd —
-so there is no hook early enough to move the panel off the doomed buffer first.
-dock detects the close and restores the panel, unless that was the last tab.
+so there is no hook early enough to move the dock off the doomed buffer first.
+dock detects the close and reopens the window, unless that was the last tab.
 
 **Option leakage.** `vim.wo[win].opt = val` also writes Neovim's hidden global
 default, even for options with no real global scope. dock sets every window
-option with an explicit `scope = "local"`, so opening the panel never changes how
+option with an explicit `scope = "local"`, so opening the dock never changes how
 your other windows behave — which matters most for `'winbar'`, where the leak
-would paint the panel's tab bar onto unrelated windows.
+would paint the dock's tab bar onto unrelated windows.
 
 ## Tests
 

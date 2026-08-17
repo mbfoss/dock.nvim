@@ -7,7 +7,7 @@ local winbar    = require("dock.winbar")
 
 --- The panel: a fixed split whose winbar is a flat, numbered list of every
 --- registered group's tabs. Groups belong to the panel *instance*, not to its
---- window — closing the panel only tears down the window, so re-opening restores
+--- window — closing the dock only tears down that window, so re-opening restores
 --- every tab exactly as it was.
 ---
 --- There is one panel for the whole editor, shared by every Neovim tabpage: the
@@ -125,7 +125,7 @@ end
 
 --- True while the user has a dock window focused. Auto-takeover is suppressed in
 --- that case, so background activity never yanks the view out from under someone
---- working inside the panel.
+--- working inside the dock.
 ---@return boolean
 function Panel:_is_focused()
     return self:_owns_win(vim.api.nvim_get_current_win())
@@ -280,7 +280,7 @@ function Panel:_on_win_closed(win)
 
     -- Deleting a buffer closes every window showing it, and Neovim emits
     -- WinClosed *before* any BufUnload/BufWipeout autocmd — there is no hook
-    -- early enough to move the panel off the doomed buffer first. So record what
+    -- early enough to move the dock off the doomed buffer first. So record what
     -- was on screen and where; if that exact buffer unloads in this same tick,
     -- the close was collateral damage from the delete and _attach_buf reopens
     -- the dock in every tab that lost it.
@@ -340,7 +340,7 @@ function Panel:_attach_buf(bufnr)
         once     = true,
         callback = function()
             self._attached[bufnr] = nil
-            local took_docs_down   = self._closing_buf == bufnr
+            local took_docks_down   = self._closing_buf == bufnr
                 and vim.tbl_keys(self._closing_tabs or {}) or {}
 
             for _, group in ipairs(vim.list_slice(self._groups)) do
@@ -349,9 +349,9 @@ function Panel:_attach_buf(bufnr)
 
             -- Restore the docks Neovim closed out from under us (see
             -- _on_win_closed), but only if there is still something to show —
-            -- reopening an empty panel over a wiped last tab is just noise.
-            if #took_docs_down > 0 and #self._groups > 0 then
-                vim.schedule(function() self:_reopen_in(took_docs_down) end)
+            -- reopening an empty dock over a wiped last tab is just noise.
+            if #took_docks_down > 0 and #self._groups > 0 then
+                vim.schedule(function() self:_reopen_in(took_docks_down) end)
             end
         end,
     })
@@ -464,7 +464,7 @@ function Panel:_advance_best()
 end
 
 --- Whether background activity in `group` may change what is displayed: yes
---- unless the user is working inside the panel, and always for a followed group.
+--- unless the user is working inside the dock, and always for a followed group.
 ---@param group dock.Group
 ---@return boolean
 function Panel:_may_follow(group)
@@ -475,7 +475,7 @@ end
 ---@return boolean
 function Panel:_should_takeover(group)
     -- "never" means never *steals* — with nothing on screen there is nothing to
-    -- steal from, and an empty panel next to a populated winbar just looks broken.
+    -- steal from, and an empty dock next to a populated winbar just looks broken.
     if not self._active or self._active:is_removed() then return true end
     if group.focus == "never" then return false end
     if group.focus == "always" then return true end
@@ -545,7 +545,7 @@ end
 ---@param group dock.Group
 function Panel:_group_changed(group)
     -- A followed group stops overriding the focus guard once it finishes, so its
-    -- final update does not disturb someone working in the panel.
+    -- final update does not disturb someone working in the dock.
     if self._follow == group and not group:is_busy() then
         self._follow = nil
     end
@@ -574,7 +574,7 @@ function Panel:_group_removed(group)
         -- everywhere else; fall back to the newest.
         self:_set_active(self._groups[idx] or self._groups[#self._groups])
         -- Synchronous: the windows must leave the buffer before a caller that is
-        -- disposing this group deletes it.
+        -- cleaning this group deletes it.
         self:_show_active()
     end
     self:_refresh_winbar()

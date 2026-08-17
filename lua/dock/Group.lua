@@ -5,7 +5,7 @@
 --- A group is one tab in the panel: a label, an optional badge, and an ordered
 --- list of pages (buffers). The owning source mutates it through these methods;
 --- every mutator notifies the panel so the winbar and the displayed buffer stay
---- in sync. A group outlives the panel window — closing the panel does not
+--- in sync. A group outlives the dock window — closing the dock does not
 --- discard it, and re-opening restores every tab, in whichever tabpage the dock
 --- is opened next.
 ---@class dock.Group
