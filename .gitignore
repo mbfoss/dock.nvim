@@ -9,5 +9,4 @@ luac.out
 .DS_Store
 /.vscode
 /.loop
-/.claude
 dock.nvim.code-workspace
