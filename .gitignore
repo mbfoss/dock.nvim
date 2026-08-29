@@ -10,3 +10,4 @@ luac.out
 /.vscode
 /.loop
 dock.nvim.code-workspace
+/.luarocks

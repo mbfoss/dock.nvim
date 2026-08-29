@@ -334,4 +334,12 @@ would paint the dock's tab bar onto unrelated windows.
 
 ```sh
 make test
+
+# pass flags through to busted
+make test BUSTED_ARGS="--filter=winbar -o gtest"
 ```
+
+Tests use [busted](https://lunarmodules.github.io/busted/), run through
+[nlua](https://github.com/mfussenegger/nlua) so each spec executes inside a
+real Neovim. `make test` installs both into a project-local `.luarocks/` tree
+on first use; `make clean-deps` removes it.
