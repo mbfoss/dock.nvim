@@ -1,4 +1,4 @@
-local config    = require("dock.config")
+local config    = require("dock.config").current
 local fixedwin  = require("dock.util.fixedwin")
 local highlight = require("dock.highlight")
 local throttle  = require("dock.util.throttle")
@@ -191,7 +191,7 @@ function Panel:open(opts)
 
     highlight.setup()
 
-    local axis, pos = config.split_spec()
+    local axis, pos = require("dock.config").split_spec()
     -- fixedwin owns the split creation, the fixed-size pinning, layout-change
     -- recovery, and the close lifecycle; on_delete hands back the last-known
     -- ratio (shared by every tab's dock, so a drag in one sizes the next) and
