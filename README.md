@@ -261,6 +261,17 @@ require("dock").setup({
 
 The dock remembers its size: drag its border and the next open uses that ratio.
 
+## Health
+
+```vim
+:checkhealth dock
+```
+
+Reports the command `setup()` registered and the options that differ from the
+defaults. An option name dock does not define is reported as a warning:
+`setup()` merges the table you pass wholesale, so a misspelled one would
+otherwise be accepted in silence.
+
 ## Highlights
 
 All defined with `default = true`, so a colourscheme always wins.
@@ -330,17 +341,10 @@ option with an explicit `scope = "local"`, so opening the dock never changes how
 your other windows behave, which matters most for `'winbar'`, where the leak
 would paint the dock's tab bar onto unrelated windows.
 
-## Tests
+<!-- panvimdoc-ignore-start -->
+## Development
 
-```sh
-make test
+Tests, help-file generation and repo conventions are in
+[DEVELOPMENT.md](DEVELOPMENT.md).
 
-# pass flags through to busted
-make test BUSTED_ARGS="--filter=winbar -o gtest"
-```
-
-Tests use [busted](https://lunarmodules.github.io/busted/), run through
-[`tests/nvim-lua`](tests/nvim-lua) so each spec executes inside a real Neovim.
-busted must already be installed for Lua 5.1, the version Neovim embeds,
-with `luarocks --lua-version=5.1 --local install busted`; `make test` fails if
-it is missing rather than installing anything.
+<!-- panvimdoc-ignore-end -->
