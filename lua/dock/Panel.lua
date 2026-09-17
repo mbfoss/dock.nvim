@@ -200,15 +200,18 @@ function Panel:open(opts)
     -- reporting; it is assigned long before any close can fire.
     local win ---@type integer?
     local augroup ---@type integer?
-    win, augroup = fixedwin.create_fixed_win(
-        axis,
-        self._ratio or config.size,
-        function(ratio)
+    -- the page buffer is swapped in below; start on the current one
+    win, augroup = fixedwin.create_fixed_win(0, {
+        axis = axis,
+        ratio = self._ratio or config.size,
+        min = config.min_size,
+        pos = pos,
+        enter = opts.enter,
+        on_delete = function(ratio)
             self._ratio = ratio
             if win then self:_on_win_closed(win) end
         end,
-        { min = config.min_size, pos = pos, enter = opts.enter }
-    )
+    })
     self._wins[tab] = { win = win, augroup = augroup }
 
     ui.setlocal(win, "winfixbuf", true)
