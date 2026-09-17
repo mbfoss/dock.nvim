@@ -1,4 +1,4 @@
-local config = require("dock.config")
+local config = require("dock.config").current
 
 ---@class dock.commands
 local M      = {}

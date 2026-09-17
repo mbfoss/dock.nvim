@@ -1,4 +1,4 @@
-local config = require("dock.config")
+local config = require("dock.config").current
 local term   = require("dock.util.term")
 local ui     = require("dock.util.ui")
 
