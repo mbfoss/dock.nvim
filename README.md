@@ -5,9 +5,9 @@ in every tabpage.
 
 Plugins that produce output (task runners, test runners, linters, REPLs, build
 tools) each end up writing the same window-management code: where to split, how
-big, how to keep the user's layout intact, what to do when the buffer is deleted.
-dock does that once. A plugin hands over a buffer and a label; dock owns
-the window, the tab bar, the numbering, and the focus rules.
+big, how to keep the user's layout intact, what to do when the buffer is
+deleted. dock does that once: a plugin hands over a buffer and a label, and
+dock owns the window, the tab bar, the numbering and the focus rules.
 
 ```
 ┌────────────────────────────────────────────────────────┐
@@ -18,7 +18,7 @@ the window, the tab bar, the numbering, and the focus rules.
 └────────────────────────────────────────────────────────┘
 ```
 
-Everything selectable in that bar is clickable, and has a number you can jump to.
+Everything selectable in that bar is clickable, and has a number to jump to.
 
 ## Requirements
 
@@ -26,14 +26,14 @@ Neovim >= 0.10 (for `'winfixbuf'`).
 
 ## Install
 
-With Neovim 0.12's builtin plugin manager:
+Neovim 0.12's builtin plugin manager:
 
 ```lua
 vim.pack.add({ "https://github.com/mbfoss/dock.nvim" })
 ```
 
-Any other plugin manager works too. Calling `setup()` is optional: the `:Dock`
-command exists and the defaults work untouched.
+Any other plugin manager works too. `setup()` is optional — the `:Dock` command
+exists and the defaults work untouched.
 
 ```lua
 require("dock").setup({
@@ -52,11 +52,14 @@ Three nouns, and only the first is yours to manage:
 | **group**  | one tab. Has a label, an optional badge, and pages. |
 | **page**   | one buffer inside a group. |
 
-A group with a single page renders as one numbered tab, and selecting it, by
-click or by number, shows that page. A group with several renders as a heading
-plus a bracketed list of numbered page tabs, so the common case stays visually
-quiet. The heading is only a label: the pages carry the numbers, starting at the
-one the group would have had, and it is not itself clickable.
+Rendering:
+
+- A group with a single page is one numbered tab; selecting it, by click or by
+  number, shows that page.
+- A group with several is a heading plus a bracketed list of numbered page
+  tabs, so the common case stays visually quiet. The heading is only a label:
+  the pages carry the numbers, starting at the one the group would have had,
+  and it is not itself clickable.
 
 Groups belong to the panel, not to its window: closing the dock tears down only
 that window, and reopening restores every tab exactly as it was.
@@ -64,11 +67,12 @@ that window, and reopening restores every tab exactly as it was.
 ### One dock, every tabpage
 
 The panel is editor-wide, not per tabpage. Every Neovim tabpage shows the same
-groups, the same tab bar and the same page, so a build you started in one tabpage is
-right there in the next, and jumping to a tab in one moves them all, because
-there is only one panel to move.
+groups, tab bar and page, so a build started in one tabpage is right there in
+the next, and jumping to a tab in one moves them all — there is only one panel
+to move.
 
-What *is* per-tabpage is the window. Each tab shows or hides the dock on its own:
+What *is* per-tabpage is the window; each tab shows or hides the dock on its
+own:
 
 | | |
 |---|---|
@@ -76,17 +80,15 @@ What *is* per-tabpage is the window. Each tab shows or hides the dock on its own
 | `dock.close()` / `:Dock close` | hide it here; the other tabpages keep theirs |
 | `dock.close({ all = true })` / `:Dock! close` | hide it everywhere |
 
-Hiding never touches the tabs themselves, so a dock closed in every tabpage
-still has every group waiting for the next `open`. Closing a tabpage is just
-that: its window goes, the panel and its groups do not.
-
-Two smaller consequences worth knowing:
-
-* Every open dock is a view of the same panel, so they all sit on the same page.
-  Only one of them can be the size you dragged it to, and that ratio is shared:
-  resize one and the next `open` uses it.
-* `:wincmd T` on the dock window is really "new window in a new tabpage, close
-  this one". The dock closes with it, and what lands in the new tabpage is a
+- Hiding never touches the tabs, so a dock closed in every tabpage still has
+  every group waiting for the next `open`.
+- Closing a tabpage is just that: its window goes, the panel and its groups do
+  not.
+- Every open dock is a view of the same panel, so they all sit on the same
+  page. Only one of them can be the size you dragged it to, and that ratio is
+  shared: resize one and the next `open` uses it.
+- `:wincmd T` on the dock window is really "new window in a new tabpage, close
+  this one": the dock closes with it, and what lands in the new tabpage is a
   plain window showing that buffer.
 
 ## Using it from a plugin
@@ -111,7 +113,7 @@ group:set_badge({ icon = "✓", hl = "DockBadgeOk" })
 group:set_busy(false)
 ```
 
-That is the whole integration. No window handling, no layout code.
+That is the whole integration: no window handling, no layout code.
 
 ### Buffer ownership and cleaning
 
@@ -119,9 +121,11 @@ dock **never deletes a buffer it did not create**, and never removes a tab on
 its own. Pages are borrowed; the source owns them and is the only party that
 knows when one has stopped mattering.
 
-So there is no "close this tab" in dock. There is `clean`, a request to shed
-what is no longer needed. `:Dock clean` asks every tab, `:Dock clean 3` asks the
-one numbered 3, and each source answers by doing whatever is right for it:
+So there is no "close this tab" in dock — there is `clean`, a request to shed
+what is no longer needed:
+
+- `:Dock clean` asks every tab, `:Dock clean 3` asks the one numbered 3.
+- Each source answers by doing whatever is right for it.
 
 ```lua
 local group = src:group({
@@ -134,23 +138,27 @@ local group = src:group({
 })
 ```
 
-A group with no `on_clean` keeps everything, which is the right default for a
-tab whose buffers belong to something else. `group:clean()` reports whether the
-tab is gone afterwards: that is how `:Dock clean` counts what it closed, not by
-deciding anything itself.
+- A group with no `on_clean` keeps everything — the right default for a tab
+  whose buffers belong to something else.
+- `group:clean()` reports whether the tab is gone afterwards: that is how
+  `:Dock clean` counts what it closed, rather than deciding anything itself.
+- `group:remove()` is the other half: it detaches the tab and leaves the
+  buffers alone, for a source tearing down its own tabs (`source:clear()` does
+  it for all of them).
 
-`group:remove()` is the other half: it detaches the tab and leaves the buffers
-alone, for a source tearing down its own tabs (`source:clear()` does it for all
-of them). Between them, every removal is the source's call.
+Between them, every removal is the source's call.
 
 ### Busy
 
 `busy` says the group is still working. Set it in the spec or with
-`group:set_busy(…)`; it is a plain flag, unrelated to the badge glyph, and it
-says nothing about lifetime. The panel prefers a busy tab when it has to pick
-one to show, and a `focus = "always"` group keeps the view until it stops being
-busy. Whether a tab may go is `on_clean`'s business, though a source is free to
-consult `is_busy()` there.
+`group:set_busy(…)`.
+
+- A plain flag, unrelated to the badge glyph, and it says nothing about
+  lifetime.
+- The panel prefers a busy tab when it has to pick one to show, and a
+  `focus = "always"` group keeps the view until it stops being busy.
+- Whether a tab may go is `on_clean`'s business, though a source is free to
+  consult `is_busy()` there.
 
 ### Who gets the view
 
@@ -163,16 +171,18 @@ guessing:
 | `"never"` | never steals the view; for background or dependency work |
 | `"always"` | takes over even when the dock is focused, and keeps the view until it stops being busy; for an explicit user action such as a restart |
 
-Within a group, `priority` decides which page wins. The panel advances to a new
-page only when it **outranks** what is already on screen, so a low-priority log
-buffer appearing mid-run never pulls the user off the output they are watching.
-Pass `activate = true` on a page, or call `group:activate()`, to insist.
+Within a group, `priority` decides which page wins:
+
+- The panel advances to a new page only when it **outranks** what is on screen,
+  so a low-priority log buffer appearing mid-run never pulls the user off the
+  output they are watching.
+- `activate = true` on a page, or `group:activate()`, insists.
 
 ### Badges
 
 A badge is the glyph drawn before a tab's label. dock has no status vocabulary
 of its own: you supply the badge, and the meaning is whatever your plugin says
-it is:
+it is.
 
 ```lua
 local group = src:group({
@@ -187,11 +197,10 @@ group:set_badge({ icon = "✓", hl = "DockBadgeOk" })  -- nil drops the glyph
 | `icon` | single-cell glyph |
 | `hl` | highlight group for the glyph |
 
-A badge is presentation only; whether a tab is still working is the group's
-`busy` flag, and whether it goes away is `on_clean`.
-
-The `DockBadge*` highlight groups below are there to hint from, but any
-highlight group works.
+- Presentation only: whether a tab is still working is the group's `busy` flag,
+  and whether it goes away is `on_clean`.
+- The `DockBadge*` highlight groups below are there to hint from, but any
+  highlight group works.
 
 ### Unread output
 
@@ -200,7 +209,7 @@ not visible. Nothing to wire up.
 
 ## Command
 
-`:Dock` toggles the dock. With a number, it jumps to that tab.
+`:Dock` toggles the dock; with a number, it jumps to that tab.
 
 | | |
 |---|---|
@@ -219,18 +228,19 @@ Rename it with `setup({ command = "Tray" })`, or disable it with
 
 ## Builtin: shell
 
-dock ships one source of its own, shells in dock tabs:
+dock ships one source of its own — shells in dock tabs:
 
 ```lua
 require("dock").shell({ cwd = vim.fn.getcwd() })
 require("dock").shell({ cmd = "echo 3" })
 ```
 
-Every shell is its own tab, labelled with the command it runs (`zsh`, `echo 3`),
-so each one is a single number away in the winbar. A tab stays busy while its
-shell is running and survives the command exiting, so the scrollback stays
-readable; `:Dock clean` wipes the terminal of a shell that has exited and drops
-its tab, and leaves a running one alone.
+- Every shell is its own tab, labelled with the command it runs (`zsh`,
+  `echo 3`), so each one is a single number away in the winbar.
+- A tab stays busy while its shell is running and survives the command exiting,
+  so the scrollback stays readable.
+- `:Dock clean` wipes the terminal of a shell that has exited and drops its
+  tab, and leaves a running one alone.
 
 `lua/dock/shell.lua` is written against nothing but the public API, so it
 doubles as a worked example of embedding a plugin's buffers.
@@ -267,10 +277,12 @@ The dock remembers its size: drag its border and the next open uses that ratio.
 :checkhealth dock
 ```
 
-Reports the command `setup()` registered and the options that differ from the
-defaults. An option name dock does not define is reported as a warning:
-`setup()` merges the table you pass wholesale, so a misspelled one would
-otherwise be accepted in silence.
+Reports:
+
+- the command `setup()` registered;
+- the options that differ from the defaults;
+- as a warning, any option name dock does not define — `setup()` merges the
+  table wholesale, so a misspelled one would otherwise be accepted in silence.
 
 ## Highlights
 
@@ -330,21 +342,22 @@ All defined with `default = true`, so a colourscheme always wins.
 
 Two things dock handles that are easy to get wrong on your own:
 
-**Deleting a displayed buffer.** Neovim closes a window when the buffer it shows
-is deleted, and emits `WinClosed` *before* any `BufUnload`/`BufWipeout` autocmd,
-so there is no hook early enough to move the dock off the doomed buffer first.
-dock detects the close and reopens the window, unless that was the last tab.
+**Deleting a displayed buffer.** Neovim closes a window when the buffer it
+shows is deleted, and emits `WinClosed` *before* any `BufUnload`/`BufWipeout`
+autocmd, so no hook is early enough to move the dock off the doomed buffer
+first. dock detects the close and reopens the window, unless that was the last
+tab.
 
 **Option leakage.** `vim.wo[win].opt = val` also writes Neovim's hidden global
 default, even for options with no real global scope. dock sets every window
-option with an explicit `scope = "local"`, so opening the dock never changes how
-your other windows behave, which matters most for `'winbar'`, where the leak
+option with an explicit `scope = "local"`, so opening the dock never changes
+how your other windows behave — it matters most for `'winbar'`, where the leak
 would paint the dock's tab bar onto unrelated windows.
 
 <!-- panvimdoc-ignore-start -->
 ## Development
 
-Tests, help-file generation and repo conventions are in
+Tests, help-file generation and repo conventions:
 [DEVELOPMENT.md](DEVELOPMENT.md).
 
 <!-- panvimdoc-ignore-end -->
