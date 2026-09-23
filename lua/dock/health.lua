@@ -1,4 +1,4 @@
----@brief Health check for dock.nvim — run with `:checkhealth dock`.
+---@brief Health check for dock.nvim - run with `:checkhealth dock`.
 ---
 ---Reports the Neovim version, the command `setup()` registered, and the
 ---options that differ from the defaults.
@@ -66,7 +66,7 @@ local function _diff_config(current, defaults, prefix, out)
     return out
 end
 
----Report the options that differ from the defaults — the whole config would be
+---Report the options that differ from the defaults - the whole config would be
 ---mostly untouched defaults, and the point here is what this user changed.
 ---Anything set that the plugin does not define is flagged: `setup()` merges
 ---`opts` wholesale, so a misspelled option is kept silently.
