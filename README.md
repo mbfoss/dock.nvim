@@ -357,11 +357,3 @@ would paint the dock's tab bar onto unrelated windows.
 ## License <!-- tag: license -->
 
 [MIT](LICENSE).
-
-<!-- panvimdoc-ignore-start -->
-
-## Development <!-- tag: development -->
-
-Internals, tests and conventions: [DEVELOPMENT.md](DEVELOPMENT.md).
-
-<!-- panvimdoc-ignore-end -->
