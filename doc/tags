@@ -9,7 +9,8 @@ dock-concepts	dock.txt	/*dock-concepts*
 dock-configuration	dock.txt	/*dock-configuration*
 dock-health	dock.txt	/*dock-health*
 dock-highlights	dock.txt	/*dock-highlights*
-dock-install	dock.txt	/*dock-install*
+dock-installation	dock.txt	/*dock-installation*
+dock-license	dock.txt	/*dock-license*
 dock-notes-on-behaviour	dock.txt	/*dock-notes-on-behaviour*
 dock-one-dock,-every-tabpage	dock.txt	/*dock-one-dock,-every-tabpage*
 dock-requirements	dock.txt	/*dock-requirements*

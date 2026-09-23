@@ -24,7 +24,7 @@ Everything selectable in that bar is clickable, and has a number to jump to.
 
 Neovim >= 0.10 (for `'winfixbuf'`).
 
-## Install
+## Installation
 
 Neovim 0.12's builtin plugin manager:
 
@@ -354,10 +354,14 @@ option with an explicit `scope = "local"`, so opening the dock never changes
 how your other windows behave — it matters most for `'winbar'`, where the leak
 would paint the dock's tab bar onto unrelated windows.
 
-<!-- panvimdoc-ignore-start -->
-## Development
+## License <!-- tag: license -->
 
-Tests, help-file generation and repo conventions:
-[DEVELOPMENT.md](DEVELOPMENT.md).
+[MIT](LICENSE).
+
+<!-- panvimdoc-ignore-start -->
+
+## Development <!-- tag: development -->
+
+Internals, tests and conventions: [DEVELOPMENT.md](DEVELOPMENT.md).
 
 <!-- panvimdoc-ignore-end -->
