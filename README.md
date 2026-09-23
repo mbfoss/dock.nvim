@@ -32,7 +32,7 @@ Neovim 0.12's builtin plugin manager:
 vim.pack.add({ "https://github.com/mbfoss/dock.nvim" })
 ```
 
-Any other plugin manager works too. `setup()` is optional — the `:Dock` command
+Any other plugin manager works too. `setup()` is optional: the `:Dock` command
 exists and the defaults work untouched.
 
 ```lua
@@ -68,8 +68,8 @@ that window, and reopening restores every tab exactly as it was.
 
 The panel is editor-wide, not per tabpage. Every Neovim tabpage shows the same
 groups, tab bar and page, so a build started in one tabpage is right there in
-the next, and jumping to a tab in one moves them all — there is only one panel
-to move.
+the next, and jumping to a tab in one moves them all, since there is only one
+panel to move.
 
 What *is* per-tabpage is the window; each tab shows or hides the dock on its
 own:
@@ -121,7 +121,7 @@ dock **never deletes a buffer it did not create**, and never removes a tab on
 its own. Pages are borrowed; the source owns them and is the only party that
 knows when one has stopped mattering.
 
-So there is no "close this tab" in dock — there is `clean`, a request to shed
+So there is no "close this tab" in dock. There is `clean`, a request to shed
 what is no longer needed:
 
 - `:Dock clean` asks every tab, `:Dock clean 3` asks the one numbered 3.
@@ -138,7 +138,7 @@ local group = src:group({
 })
 ```
 
-- A group with no `on_clean` keeps everything — the right default for a tab
+- A group with no `on_clean` keeps everything, the right default for a tab
   whose buffers belong to something else.
 - `group:clean()` reports whether the tab is gone afterwards: that is how
   `:Dock clean` counts what it closed, rather than deciding anything itself.
@@ -228,7 +228,7 @@ Rename it with `setup({ command = "Tray" })`, or disable it with
 
 ## Builtin: shell
 
-dock ships one source of its own — shells in dock tabs:
+dock ships one source of its own, shells in dock tabs:
 
 ```lua
 require("dock").shell({ cwd = vim.fn.getcwd() })
@@ -281,7 +281,7 @@ Reports:
 
 - the command `setup()` registered;
 - the options that differ from the defaults;
-- as a warning, any option name dock does not define — `setup()` merges the
+- as a warning, any option name dock does not define: `setup()` merges the
   table wholesale, so a misspelled one would otherwise be accepted in silence.
 
 ## Highlights
@@ -351,7 +351,7 @@ tab.
 **Option leakage.** `vim.wo[win].opt = val` also writes Neovim's hidden global
 default, even for options with no real global scope. dock sets every window
 option with an explicit `scope = "local"`, so opening the dock never changes
-how your other windows behave — it matters most for `'winbar'`, where the leak
+how your other windows behave. It matters most for `'winbar'`, where the leak
 would paint the dock's tab bar onto unrelated windows.
 
 ## License <!-- tag: license -->

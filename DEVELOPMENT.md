@@ -27,8 +27,8 @@ make test BUSTED_ARGS="--filter=winbar -o gtest"
 ```
 
 - [busted](https://lunarmodules.github.io/busted/), run through
-  [`tests/nvim-lua`](tests/nvim-lua) — the interpreter shim named by
-  [`.busted`](.busted) — so each spec executes inside a real Neovim and can use
+  [`tests/nvim-lua`](tests/nvim-lua), the interpreter shim named by
+  [`.busted`](.busted), so each spec executes inside a real Neovim and can use
   the `vim` API.
 - busted must already be installed for Lua 5.1, the version Neovim embeds:
 
@@ -54,8 +54,8 @@ scripts/gendoc.sh --check --diff
 - Needs pandoc (`brew install pandoc`). `nvim` is used only to refresh
   `doc/tags`, and is optional.
 - panvimdoc is fetched on first run and cached under `$XDG_CACHE_HOME`, pinned
-  to the commit in `PANVIMDOC_COMMIT` — a tag can be moved, a commit cannot —
-  so the help file is reproducible.
+  to the commit in `PANVIMDOC_COMMIT` (a tag can be moved, a commit cannot), so
+  the help file is reproducible.
 - `PANVIMDOC_DIR` points at a checkout of your own instead.
 - Regenerate and commit `doc/` whenever `README.md` changes.
 
